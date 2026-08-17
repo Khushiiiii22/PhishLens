@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-slate-950: #0F172A;
+  --color-cyan-accent: #22D3EE;
+}
