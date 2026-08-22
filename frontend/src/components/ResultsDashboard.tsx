@@ -48,17 +48,27 @@ function formatAge(days: number | null): string {
 export default function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
   const lexical = result.lexical_analysis;
   const domain = result.domain_analysis;
+  const behavior = result.behavior_analysis;
 
-  // TEMPORARY: combined score = average of lexical + domain scores.
+  // TEMPORARY: combined score = average of all available engine scores.
   // TODO: Replace this with the real Adaptive Risk Fusion Engine score
   // once it is built. This is only a placeholder for display purposes.
   const lexScore = lexical?.lexical_score ?? 0;
   const domScore = domain?.domain_score ?? 0;
-  const combinedScore = Math.round((lexScore + domScore) / 2);
+  const behScore = behavior?.behavior_score ?? 0;
+
+  // Only count engines that actually produced a score
+  let engineCount = 0;
+  let totalScore = 0;
+  if (lexical) { totalScore += lexScore; engineCount++; }
+  if (domain) { totalScore += domScore; engineCount++; }
+  if (behavior && !behavior.behavior_analysis_failed) { totalScore += behScore; engineCount++; }
+
+  const combinedScore = engineCount > 0 ? Math.round(totalScore / engineCount) : 0;
 
   return (
     <div className="min-h-screen bg-[#0F172A] px-4 py-10 font-sans antialiased">
-      <div className="max-w-[720px] mx-auto">
+      <div className="max-w-[1080px] mx-auto">
 
         {/* Wordmark */}
         <div className="text-center mb-8">
@@ -99,7 +109,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         </div>
 
         {/* ─── 3. ENGINE CARDS ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
 
           {/* Lexical Analysis */}
           {lexical && (
@@ -139,6 +149,89 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                   value: <Badge positive={domain.dnssec_enabled} />,
                 },
               ]}
+            />
+          )}
+
+          {/* Website Behavior */}
+          {behavior && (
+            <EngineCard
+              title="Website Behavior"
+              score={behavior.behavior_score}
+              items={
+                behavior.behavior_analysis_failed
+                  ? [
+                      {
+                        label: "Status",
+                        value: (
+                          <span className="text-xs text-slate-600 italic">
+                            Page could not be analyzed (blocked or unreachable)
+                          </span>
+                        ),
+                      },
+                    ]
+                  : [
+                      {
+                        label: "Login Form",
+                        value: behavior.has_login_form
+                          ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              Login form detected
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              No login form
+                            </span>,
+                      },
+                      {
+                        label: "Form Action",
+                        value: behavior.external_form_action
+                          ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              External form action
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              Form action is safe
+                            </span>,
+                      },
+                      {
+                        label: "Hidden Iframe",
+                        value: behavior.has_hidden_iframe
+                          ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              Hidden iframe found
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              No hidden iframes
+                            </span>,
+                      },
+                      {
+                        label: "JS Redirect",
+                        value: behavior.has_js_redirect
+                          ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              Redirect detected
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              No redirect
+                            </span>,
+                      },
+                      {
+                        label: "Popup",
+                        value: behavior.popup_detected
+                          ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              Popup detected
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              No popups
+                            </span>,
+                      },
+                    ]
+              }
             />
           )}
         </div>

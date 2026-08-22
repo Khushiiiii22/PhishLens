@@ -29,6 +29,18 @@ class DomainAnalysisResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class BehaviorAnalysisResponse(BaseModel):
+    has_login_form: bool
+    has_hidden_iframe: bool
+    has_js_redirect: bool
+    external_form_action: bool
+    popup_detected: bool
+    behavior_score: float
+    behavior_analysis_failed: bool
+
+    class Config:
+        from_attributes = True
+
 class ScanResponse(BaseModel):
     id: int
     url: str
@@ -36,6 +48,7 @@ class ScanResponse(BaseModel):
     verdict: str
     lexical_analysis: Optional[LexicalAnalysisResponse] = None
     domain_analysis: Optional[DomainAnalysisResponse] = None
+    behavior_analysis: Optional[BehaviorAnalysisResponse] = None
 
     class Config:
         from_attributes = True

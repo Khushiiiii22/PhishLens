@@ -68,7 +68,10 @@ class PageAnalysis(Base):
     has_login_form = Column(Boolean, default=False)
     has_hidden_iframe = Column(Boolean, default=False)
     has_js_redirect = Column(Boolean, default=False)
+    external_form_action = Column(Boolean, default=False)
+    popup_detected = Column(Boolean, default=False)
     behavior_score = Column(Float, nullable=True)
+    behavior_analysis_failed = Column(Boolean, default=False)
 
     scan = relationship("UrlScan", back_populates="page_analysis")
 

@@ -20,6 +20,16 @@ export interface DomainAnalysis {
   domain_score: number;
 }
 
+export interface BehaviorAnalysis {
+  has_login_form: boolean;
+  has_hidden_iframe: boolean;
+  has_js_redirect: boolean;
+  external_form_action: boolean;
+  popup_detected: boolean;
+  behavior_score: number;
+  behavior_analysis_failed: boolean;
+}
+
 export interface ScanResponse {
   id: number;
   url: string;
@@ -27,6 +37,7 @@ export interface ScanResponse {
   verdict: string;
   lexical_analysis: LexicalAnalysis | null;
   domain_analysis: DomainAnalysis | null;
+  behavior_analysis: BehaviorAnalysis | null;
 }
 
 const API_BASE = "http://127.0.0.1:8000";

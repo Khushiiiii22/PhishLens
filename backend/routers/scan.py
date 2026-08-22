@@ -5,6 +5,7 @@ import schemas
 from database import get_db
 from engines.lexical import analyze_lexical
 from engines.domain_intel import analyze_domain
+from engines.behavior import analyze_behavior
 
 router = APIRouter(
     prefix="/scan",
@@ -57,15 +58,33 @@ def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)
     )
     db.add(domain_row)
 
-    # 6. Update verdict to "analyzed"
+    # 6. Run the website behavior engine (headless Chromium, ~10-15s)
+    #    This can fail gracefully (site blocks headless, DNS error, timeout).
+    #    A failure should NOT block the scan — we still return lexical + domain.
+    behavior_data = analyze_behavior(url_str)
+
+    # 7. Insert page_analysis row
+    page_analysis_row = models.PageAnalysis(
+        scan_id=new_scan.id,
+        has_login_form=behavior_data["has_login_form"],
+        has_hidden_iframe=behavior_data["has_hidden_iframe"],
+        has_js_redirect=behavior_data["has_js_redirect"],
+        external_form_action=behavior_data["external_form_action"],
+        popup_detected=behavior_data["popup_detected"],
+        behavior_score=behavior_data["behavior_score"],
+        behavior_analysis_failed=behavior_data["behavior_analysis_failed"],
+    )
+    db.add(page_analysis_row)
+
+    # 8. Update verdict to "analyzed"
     new_scan.verdict = "analyzed"
 
-    # 7. Commit the ENTIRE transaction atomically
-    #    (url_scans + heuristic_results + domain_intelligence_results)
+    # 9. Commit the ENTIRE transaction atomically
+    #    (url_scans + heuristic_results + domain_intelligence_results + page_analysis)
     db.commit()
     db.refresh(new_scan)
 
-    # 8. Build and return the response with both analysis breakdowns
+    # 10. Build and return the response with all three analysis breakdowns
     return schemas.ScanResponse(
         id=new_scan.id,
         url=new_scan.url,
@@ -73,4 +92,5 @@ def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)
         verdict=new_scan.verdict,
         lexical_analysis=schemas.LexicalAnalysisResponse(**lexical_data),
         domain_analysis=schemas.DomainAnalysisResponse(**domain_data),
+        behavior_analysis=schemas.BehaviorAnalysisResponse(**behavior_data),
     )
