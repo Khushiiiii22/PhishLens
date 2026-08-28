@@ -13,6 +13,7 @@ class LexicalAnalysisResponse(BaseModel):
     special_char_count: int
     entropy_score: float
     has_suspicious_keywords: bool
+    has_punycode_or_homoglyph: bool
     lexical_score: float
 
     class Config:

@@ -111,7 +111,7 @@ function App() {
       {/* Wordmark */}
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-white">
-          Phish<span className="text-[#22D3EE]">Lens</span>
+          Phish<span className="text-[#22D3EE]">Lens</span> XAI
         </h1>
         <p className="mt-1.5 text-sm text-slate-500 tracking-wide">
           Multi-engine phishing detection

@@ -11,12 +11,14 @@ No imports from database.py, models.py, or schemas.py.
 
 import ssl
 import socket
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import whois
 import dns.resolver
 import dns.name
+from loguru import logger
 
 
 # ---------------------------------------------------------------------------
@@ -58,8 +60,8 @@ def _whois_lookup(domain: str) -> dict:
                 creation = creation.replace(tzinfo=timezone.utc)
             age_delta = now - creation
             result["domain_age_days"] = max(age_delta.days, 0)
-    except Exception:
-        pass  # WHOIS can fail for many reasons; leave fields as None
+    except Exception as e:
+        logger.warning("[Domain Intel] WHOIS lookup failed for {}: {}", domain, e)
 
     return result
 
@@ -85,8 +87,8 @@ def _ssl_check(domain: str, timeout: int = 5) -> dict:
                         for item in sub
                     )
                     result["ssl_issuer"] = issuer_fields.get("organizationName")
-    except Exception:
-        pass  # Connection refused, timeout, cert error → ssl_valid stays False
+    except Exception as e:
+        logger.warning("[Domain Intel] SSL check failed for {}: {}", domain, e)
 
     return result
 
@@ -168,6 +170,9 @@ def analyze_domain(url: str) -> dict:
         domain_age_days, registrar, ssl_valid, ssl_issuer,
         dnssec_enabled, domain_score
     """
+    start = time.perf_counter()
+    logger.info("[Domain Intel] Starting analysis for: {}", url)
+
     domain = _extract_domain(url)
 
     # Each lookup is independent; failures are silenced individually
@@ -180,6 +185,9 @@ def analyze_domain(url: str) -> dict:
         ssl_valid=ssl_data["ssl_valid"],
         dnssec_enabled=dnssec_enabled,
     )
+
+    elapsed = time.perf_counter() - start
+    logger.info("[Domain Intel] Completed in {:.1f}s — score: {}", elapsed, domain_score)
 
     return {
         "domain_age_days": whois_data["domain_age_days"],

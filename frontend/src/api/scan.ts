@@ -8,6 +8,7 @@ export interface LexicalAnalysis {
   special_char_count: number;
   entropy_score: number;
   has_suspicious_keywords: boolean;
+  has_punycode_or_homoglyph: boolean;
   lexical_score: number;
 }
 

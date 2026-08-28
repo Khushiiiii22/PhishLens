@@ -1,5 +1,10 @@
+import asyncio
+import time
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from loguru import logger
+
 import models
 import schemas
 from database import get_db
@@ -13,8 +18,10 @@ router = APIRouter(
 )
 
 @router.post("", response_model=schemas.ScanResponse)
-def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)):
+async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)):
     url_str = str(scan_request.url)
+    total_start = time.perf_counter()
+    logger.info("━━━ Scan started for: {} ━━━", url_str)
 
     # 1. Insert into url_scans with verdict "pending" initially
     new_scan = models.UrlScan(
@@ -39,12 +46,24 @@ def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)
         special_char_count=lexical_data["special_char_count"],
         entropy_score=lexical_data["entropy_score"],
         has_suspicious_keywords=lexical_data["has_suspicious_keywords"],
+        has_punycode_or_homoglyph=lexical_data["has_punycode_or_homoglyph"],
         lexical_score=lexical_data["lexical_score"],
     )
     db.add(heuristic_row)
 
-    # 4. Run the domain intelligence engine (WHOIS + SSL + DNS, ~5-10s worst case)
-    domain_data = analyze_domain(url_str)
+    # 4. Run domain intelligence + behavior engines IN PARALLEL
+    #    Both are blocking I/O calls, so we offload them to threads
+    #    using asyncio.to_thread and gather the results concurrently.
+    logger.info("[Scan] Launching Domain Intel + Behavior in parallel…")
+    parallel_start = time.perf_counter()
+
+    domain_data, behavior_data = await asyncio.gather(
+        asyncio.to_thread(analyze_domain, url_str),
+        asyncio.to_thread(analyze_behavior, url_str),
+    )
+
+    parallel_elapsed = time.perf_counter() - parallel_start
+    logger.info("[Scan] Parallel engines finished in {:.1f}s", parallel_elapsed)
 
     # 5. Insert domain_intelligence_results row
     domain_row = models.DomainIntelligenceResult(
@@ -58,12 +77,7 @@ def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)
     )
     db.add(domain_row)
 
-    # 6. Run the website behavior engine (headless Chromium, ~10-15s)
-    #    This can fail gracefully (site blocks headless, DNS error, timeout).
-    #    A failure should NOT block the scan — we still return lexical + domain.
-    behavior_data = analyze_behavior(url_str)
-
-    # 7. Insert page_analysis row
+    # 6. Insert page_analysis row
     page_analysis_row = models.PageAnalysis(
         scan_id=new_scan.id,
         has_login_form=behavior_data["has_login_form"],
@@ -76,15 +90,18 @@ def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)
     )
     db.add(page_analysis_row)
 
-    # 8. Update verdict to "analyzed"
+    # 7. Update verdict to "analyzed"
     new_scan.verdict = "analyzed"
 
-    # 9. Commit the ENTIRE transaction atomically
+    # 8. Commit the ENTIRE transaction atomically
     #    (url_scans + heuristic_results + domain_intelligence_results + page_analysis)
     db.commit()
     db.refresh(new_scan)
 
-    # 10. Build and return the response with all three analysis breakdowns
+    total_elapsed = time.perf_counter() - total_start
+    logger.info("━━━ Scan completed in {:.1f}s for: {} ━━━", total_elapsed, url_str)
+
+    # 9. Build and return the response with all three analysis breakdowns
     return schemas.ScanResponse(
         id=new_scan.id,
         url=new_scan.url,

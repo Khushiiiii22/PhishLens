@@ -11,8 +11,10 @@ returns a safe default result instead of crashing.
 No imports from database.py, models.py, or schemas.py.
 """
 
+import time
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
+from loguru import logger
 
 
 def _same_domain(url_a: str, url_b: str) -> bool:
@@ -87,6 +89,9 @@ def analyze_behavior(url: str) -> dict:
         external_form_action, popup_detected, behavior_score,
         behavior_analysis_failed
     """
+    start = time.perf_counter()
+    logger.info("[Behavior] Starting analysis for: {}", url)
+
     pw = None
     browser = None
 
@@ -170,6 +175,9 @@ def analyze_behavior(url: str) -> dict:
             popup_detected=popup_detected,
         )
 
+        elapsed = time.perf_counter() - start
+        logger.info("[Behavior] Completed in {:.1f}s — score: {}", elapsed, behavior_score)
+
         return {
             "has_login_form": bool(has_login_form),
             "has_hidden_iframe": bool(has_hidden_iframe),
@@ -180,7 +188,9 @@ def analyze_behavior(url: str) -> dict:
             "behavior_analysis_failed": False,
         }
 
-    except (PwTimeout, Exception):
+    except (PwTimeout, Exception) as e:
+        elapsed = time.perf_counter() - start
+        logger.warning("[Behavior] Failed after {:.1f}s — reason: {}", elapsed, e)
         # Page timeout, DNS failure, connection refused, headless-block, etc.
         return _safe_result(failed=True)
 

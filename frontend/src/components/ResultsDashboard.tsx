@@ -50,21 +50,25 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
   const domain = result.domain_analysis;
   const behavior = result.behavior_analysis;
 
-  // TEMPORARY: combined score = average of all available engine scores.
+  // TEMPORARY: combined score = weighted sum of engine scores.
+  // Weights: lexical 0.30, domain 0.40, behavior 0.30.
+  // If behavior_analysis_failed, redistribute its 0.30 proportionally.
   // TODO: Replace this with the real Adaptive Risk Fusion Engine score
   // once it is built. This is only a placeholder for display purposes.
   const lexScore = lexical?.lexical_score ?? 0;
   const domScore = domain?.domain_score ?? 0;
   const behScore = behavior?.behavior_score ?? 0;
+  const behaviorAvailable = behavior && !behavior.behavior_analysis_failed;
 
-  // Only count engines that actually produced a score
-  let engineCount = 0;
-  let totalScore = 0;
-  if (lexical) { totalScore += lexScore; engineCount++; }
-  if (domain) { totalScore += domScore; engineCount++; }
-  if (behavior && !behavior.behavior_analysis_failed) { totalScore += behScore; engineCount++; }
-
-  const combinedScore = engineCount > 0 ? Math.round(totalScore / engineCount) : 0;
+  let combinedScore: number;
+  if (behaviorAvailable) {
+    // All 3 engines: 0.30 + 0.40 + 0.30 = 1.0
+    combinedScore = Math.round(lexScore * 0.30 + domScore * 0.40 + behScore * 0.30);
+  } else {
+    // Behavior unavailable: redistribute 0.30 proportionally across lex (0.30) + dom (0.40)
+    // New weights: lex = 0.30/0.70 ≈ 0.4286, dom = 0.40/0.70 ≈ 0.5714
+    combinedScore = Math.round(lexScore * (0.30 / 0.70) + domScore * (0.40 / 0.70));
+  }
 
   return (
     <div className="min-h-screen bg-[#0F172A] px-4 py-10 font-sans antialiased">
@@ -73,7 +77,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         {/* Wordmark */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight text-white">
-            Phish<span className="text-[#22D3EE]">Lens</span>
+            Phish<span className="text-[#22D3EE]">Lens</span> XAI
           </h1>
         </div>
 
@@ -126,6 +130,10 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                 {
                   label: "Suspicious Keywords",
                   value: <Badge positive={!lexical.has_suspicious_keywords} />,
+                },
+                {
+                  label: "Punycode / Homoglyph",
+                  value: <Badge positive={!lexical.has_punycode_or_homoglyph} />,
                 },
               ]}
             />

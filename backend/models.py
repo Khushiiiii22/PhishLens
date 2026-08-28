@@ -40,6 +40,7 @@ class HeuristicResult(Base):
     special_char_count = Column(Integer)
     entropy_score = Column(Float)
     has_suspicious_keywords = Column(Boolean, default=False)
+    has_punycode_or_homoglyph = Column(Boolean, default=False)
     lexical_score = Column(Float)
 
     scan = relationship("UrlScan", back_populates="heuristic_results")

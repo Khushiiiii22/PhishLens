@@ -7,7 +7,12 @@ Takes a raw URL string and extracts heuristic features from its structure.
 
 import math
 import re
+import unicodedata
 from collections import Counter
+from urllib.parse import urlparse
+import time
+
+from loguru import logger
 
 # Keywords commonly found in phishing URLs
 SUSPICIOUS_KEYWORDS = [
@@ -18,6 +23,24 @@ SUSPICIOUS_KEYWORDS = [
 
 # Characters considered "normal" in a URL — everything else is special
 _NORMAL_URL_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-/:")
+
+# Common Cyrillic characters that visually resemble Latin letters
+# Map: Cyrillic → Latin look-alike
+_HOMOGLYPH_CHARS = {
+    '\u0430': 'a',  # Cyrillic а → Latin a
+    '\u0435': 'e',  # Cyrillic е → Latin e
+    '\u043e': 'o',  # Cyrillic о → Latin o
+    '\u0440': 'p',  # Cyrillic р → Latin p
+    '\u0441': 'c',  # Cyrillic с → Latin c
+    '\u0443': 'y',  # Cyrillic у → Latin y
+    '\u0445': 'x',  # Cyrillic х → Latin x
+    '\u0456': 'i',  # Cyrillic і → Latin i
+    '\u0455': 's',  # Cyrillic ѕ → Latin s
+    '\u04bb': 'h',  # Cyrillic һ → Latin h
+    '\u0501': 'd',  # Cyrillic ԁ → Latin d
+    '\u051b': 'q',  # Cyrillic ԛ → Latin q
+    '\u0261': 'g',  # Latin small letter script g (used as homoglyph)
+}
 
 
 def _shannon_entropy(text: str) -> float:
@@ -38,6 +61,71 @@ def _count_special_chars(url: str) -> int:
     return sum(1 for ch in url if ch not in _NORMAL_URL_CHARS)
 
 
+def _check_punycode_or_homoglyph(url: str) -> bool:
+    """
+    Check if the domain portion of a URL uses punycode (xn-- prefix) or
+    contains characters from non-Latin scripts that visually resemble
+    Latin letters (homoglyph attack).
+
+    This is a strong phishing signal — attackers register domains like
+    "аpple.com" (Cyrillic 'а') that look identical to "apple.com".
+    """
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or parsed.path.split("/")[0]
+        if not hostname:
+            return False
+
+        # Check 1: Punycode — the domain contains "xn--" labels after
+        # ASCII encoding (this is how IDN domains are stored in DNS).
+        try:
+            ascii_hostname = hostname.encode("idna").decode("ascii")
+            if "xn--" in ascii_hostname:
+                return True
+        except (UnicodeError, UnicodeDecodeError):
+            # If IDNA encoding itself fails, the hostname likely has
+            # unusual Unicode — treat as suspicious
+            return True
+
+        # Check 2: Direct homoglyph characters in the hostname
+        for ch in hostname:
+            if ch in _HOMOGLYPH_CHARS:
+                return True
+
+        # Check 3: Mixed-script detection — if the hostname contains
+        # characters from multiple Unicode scripts (e.g. Latin + Cyrillic),
+        # that's a strong homoglyph indicator.
+        scripts = set()
+        for ch in hostname:
+            if ch in '.-':
+                continue
+            cat = unicodedata.category(ch)
+            if cat.startswith('L'):  # Letter category
+                # Get the script by checking the Unicode name
+                try:
+                    name = unicodedata.name(ch, '')
+                    if 'CYRILLIC' in name:
+                        scripts.add('Cyrillic')
+                    elif 'LATIN' in name:
+                        scripts.add('Latin')
+                    elif 'GREEK' in name:
+                        scripts.add('Greek')
+                    else:
+                        scripts.add(name.split()[0] if name else 'Unknown')
+                except ValueError:
+                    pass
+
+        # Multiple letter scripts in one hostname is suspicious
+        letter_scripts = scripts - {'Unknown'}
+        if len(letter_scripts) > 1:
+            return True
+
+    except Exception:
+        pass
+
+    return False
+
+
 def _compute_lexical_score(
     url_length: int,
     dot_count: int,
@@ -46,6 +134,7 @@ def _compute_lexical_score(
     special_char_count: int,
     entropy_score: float,
     has_suspicious_keywords: bool,
+    has_punycode_or_homoglyph: bool,
 ) -> float:
     """
     Combine lexical signals into a single 0-100 risk score.
@@ -93,6 +182,13 @@ def _compute_lexical_score(
     if has_suspicious_keywords:
         score += 15  # flat +15
 
+    # --- Punycode / Homoglyph ---
+    # This is a very strong phishing signal on its own. Legitimate sites
+    # rarely use IDN domains that encode to punycode, and homoglyph
+    # characters are almost exclusively used for impersonation.
+    if has_punycode_or_homoglyph:
+        score += 25  # flat +25
+
     # Clamp to [0, 100] and round
     return round(max(0.0, min(score, 100.0)), 1)
 
@@ -111,8 +207,11 @@ def analyze_lexical(url: str) -> dict:
     dict with keys:
         url_length, dot_count, hyphen_count, digit_count,
         special_char_count, entropy_score, has_suspicious_keywords,
-        lexical_score
+        has_punycode_or_homoglyph, lexical_score
     """
+    start = time.perf_counter()
+    logger.info("[Lexical] Starting analysis for: {}", url)
+
     url_length = len(url)
     dot_count = url.count(".")
     hyphen_count = url.count("-")
@@ -123,6 +222,8 @@ def analyze_lexical(url: str) -> dict:
     url_lower = url.lower()
     has_suspicious_keywords = any(kw in url_lower for kw in SUSPICIOUS_KEYWORDS)
 
+    has_punycode_or_homoglyph = _check_punycode_or_homoglyph(url)
+
     lexical_score = _compute_lexical_score(
         url_length=url_length,
         dot_count=dot_count,
@@ -131,7 +232,11 @@ def analyze_lexical(url: str) -> dict:
         special_char_count=special_char_count,
         entropy_score=entropy_score,
         has_suspicious_keywords=has_suspicious_keywords,
+        has_punycode_or_homoglyph=has_punycode_or_homoglyph,
     )
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info("[Lexical] Completed in {:.1f}ms — score: {}", elapsed_ms, lexical_score)
 
     return {
         "url_length": url_length,
@@ -141,5 +246,6 @@ def analyze_lexical(url: str) -> dict:
         "special_char_count": special_char_count,
         "entropy_score": entropy_score,
         "has_suspicious_keywords": has_suspicious_keywords,
+        "has_punycode_or_homoglyph": has_punycode_or_homoglyph,
         "lexical_score": lexical_score,
     }
