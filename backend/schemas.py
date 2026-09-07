@@ -42,14 +42,25 @@ class BehaviorAnalysisResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class MLAnalysisResponse(BaseModel):
+    prediction: str
+    confidence: float
+    model_version: str
+    ml_score: float
+
+    class Config:
+        from_attributes = True
+
 class ScanResponse(BaseModel):
     id: int
     url: str
     source: str
     verdict: str
+    final_risk_score: Optional[float] = None
     lexical_analysis: Optional[LexicalAnalysisResponse] = None
     domain_analysis: Optional[DomainAnalysisResponse] = None
     behavior_analysis: Optional[BehaviorAnalysisResponse] = None
+    ml_analysis: Optional[MLAnalysisResponse] = None
 
     class Config:
         from_attributes = True

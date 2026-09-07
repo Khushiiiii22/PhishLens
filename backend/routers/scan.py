@@ -11,6 +11,7 @@ from database import get_db
 from engines.lexical import analyze_lexical
 from engines.domain_intel import analyze_domain
 from engines.behavior import analyze_behavior
+from engines.ml_predict import predict_ml
 
 router = APIRouter(
     prefix="/scan",
@@ -51,7 +52,20 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     )
     db.add(heuristic_row)
 
-    # 4. Run domain intelligence + behavior engines IN PARALLEL
+    # 4. Run ML prediction (instant — uses the lexical features already computed)
+    ml_data = predict_ml(lexical_data)
+
+    # 5. Insert ml_predictions row
+    ml_row = models.MlPrediction(
+        scan_id=new_scan.id,
+        model_name=ml_data.get("model_version", "RandomForest"),
+        confidence=ml_data["confidence"],
+        prediction=ml_data["prediction"],
+        model_version=ml_data["model_version"],
+    )
+    db.add(ml_row)
+
+    # 6. Run domain intelligence + behavior engines IN PARALLEL
     #    Both are blocking I/O calls, so we offload them to threads
     #    using asyncio.to_thread and gather the results concurrently.
     logger.info("[Scan] Launching Domain Intel + Behavior in parallel…")
@@ -65,7 +79,7 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     parallel_elapsed = time.perf_counter() - parallel_start
     logger.info("[Scan] Parallel engines finished in {:.1f}s", parallel_elapsed)
 
-    # 5. Insert domain_intelligence_results row
+    # 7. Insert domain_intelligence_results row
     domain_row = models.DomainIntelligenceResult(
         scan_id=new_scan.id,
         domain_age_days=domain_data["domain_age_days"],
@@ -77,7 +91,7 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     )
     db.add(domain_row)
 
-    # 6. Insert page_analysis row
+    # 8. Insert page_analysis row
     page_analysis_row = models.PageAnalysis(
         scan_id=new_scan.id,
         has_login_form=behavior_data["has_login_form"],
@@ -90,24 +104,34 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     )
     db.add(page_analysis_row)
 
-    # 7. Update verdict to "analyzed"
+    # 9. Calculate final risk score
+    final_risk_score = (
+        lexical_data["lexical_score"] * 0.21 +
+        domain_data["domain_score"] * 0.28 +
+        behavior_data["behavior_score"] * 0.21 +
+        ml_data["ml_score"] * 0.30
+    )
+    new_scan.final_risk_score = final_risk_score
     new_scan.verdict = "analyzed"
 
-    # 8. Commit the ENTIRE transaction atomically
-    #    (url_scans + heuristic_results + domain_intelligence_results + page_analysis)
+    # 10. Commit the ENTIRE transaction atomically
+    #     (url_scans + heuristic_results + ml_predictions +
+    #      domain_intelligence_results + page_analysis)
     db.commit()
     db.refresh(new_scan)
 
     total_elapsed = time.perf_counter() - total_start
     logger.info("━━━ Scan completed in {:.1f}s for: {} ━━━", total_elapsed, url_str)
 
-    # 9. Build and return the response with all three analysis breakdowns
+    # 11. Build and return the response with all four analysis breakdowns
     return schemas.ScanResponse(
         id=new_scan.id,
         url=new_scan.url,
         source=new_scan.source.value,
         verdict=new_scan.verdict,
+        final_risk_score=new_scan.final_risk_score,
         lexical_analysis=schemas.LexicalAnalysisResponse(**lexical_data),
         domain_analysis=schemas.DomainAnalysisResponse(**domain_data),
         behavior_analysis=schemas.BehaviorAnalysisResponse(**behavior_data),
+        ml_analysis=schemas.MLAnalysisResponse(**ml_data),
     )

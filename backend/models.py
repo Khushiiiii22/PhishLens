@@ -85,6 +85,7 @@ class MlPrediction(Base):
     model_name = Column(String, nullable=False)
     confidence = Column(Float, nullable=False)
     prediction = Column(String, nullable=False)
+    model_version = Column(String, nullable=True)
 
     scan = relationship("UrlScan", back_populates="ml_predictions")
 

@@ -1,0 +1,69 @@
+{
+  "model_name": "Random Forest",
+  "model_type": "lexical-only-baseline",
+  "description": "Lexical-only baseline model trained on 9 URL structure features. This is a placeholder until domain + behavior features are added.",
+  "features": [
+    "url_length",
+    "dot_count",
+    "hyphen_count",
+    "digit_count",
+    "special_char_count",
+    "entropy_score",
+    "has_suspicious_keywords",
+    "has_punycode_or_homoglyph",
+    "lexical_score"
+  ],
+  "feature_count": 9,
+  "feature_order": "Features must be provided in exactly this order",
+  "label_encoding": {
+    "legitimate": 0,
+    "phishing": 1
+  },
+  "dataset_size": 11430,
+  "train_size": 9144,
+  "test_size": 2286,
+  "metrics": {
+    "Accuracy": 0.8097,
+    "Precision": 0.8327,
+    "Recall": 0.7752,
+    "F1-Score": 0.8029,
+    "FPR": 0.1557,
+    "ROC-AUC": 0.8889,
+    "Train Time": "0.33s"
+  },
+  "all_model_results": {
+    "Logistic Regression": {
+      "Accuracy": 0.7227,
+      "Precision": 0.7844,
+      "Recall": 0.6142,
+      "F1-Score": 0.6889,
+      "FPR": 0.1689,
+      "ROC-AUC": 0.7971,
+      "Train Time": "0.01s"
+    },
+    "Random Forest": {
+      "Accuracy": 0.8097,
+      "Precision": 0.8327,
+      "Recall": 0.7752,
+      "F1-Score": 0.8029,
+      "FPR": 0.1557,
+      "ROC-AUC": 0.8889,
+      "Train Time": "0.33s"
+    },
+    "XGBoost": {
+      "Accuracy": 0.8071,
+      "Precision": 0.8208,
+      "Recall": 0.7857,
+      "F1-Score": 0.8029,
+      "FPR": 0.1715,
+      "ROC-AUC": 0.8888,
+      "Train Time": "0.27s"
+    }
+  },
+  "scaler": "baseline_scaler.pkl (StandardScaler, must be applied before prediction)",
+  "files": {
+    "model": "baseline_model.pkl",
+    "scaler": "baseline_scaler.pkl",
+    "metadata": "baseline_metadata.json"
+  }
+}

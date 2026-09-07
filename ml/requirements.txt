@@ -1,0 +1,10 @@
+# PhishLens ML Pipeline — Dependencies
+# Install with: pip install -r requirements.txt
+
+pandas>=2.2
+scikit-learn>=1.6
+xgboost>=3.0
+joblib>=1.5
+jupyter>=1.1
+loguru>=0.7
+kagglehub>=0.3
