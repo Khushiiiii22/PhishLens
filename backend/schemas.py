@@ -57,6 +57,8 @@ class ScanResponse(BaseModel):
     source: str
     verdict: str
     final_risk_score: Optional[float] = None
+    engines_used: list[str] = []
+    engines_failed: list[str] = []
     lexical_analysis: Optional[LexicalAnalysisResponse] = None
     domain_analysis: Optional[DomainAnalysisResponse] = None
     behavior_analysis: Optional[BehaviorAnalysisResponse] = None

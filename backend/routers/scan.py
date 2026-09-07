@@ -18,6 +18,32 @@ router = APIRouter(
     tags=["Scan"]
 )
 
+def calculate_final_score(engines_results: list[dict]) -> tuple[float, list[str], list[str]]:
+    valid_engines = []
+    failed_engines = []
+    total_valid_weight = 0.0
+    
+    for r in engines_results:
+        if r.get("failed", False):
+            failed_engines.append(r["name"])
+        else:
+            valid_engines.append(r)
+            total_valid_weight += r["weight"]
+            
+    if total_valid_weight == 0.0:
+        return 0.0, [], failed_engines
+        
+    final_score = 0.0
+    used_engine_names = []
+    for r in valid_engines:
+        # Redistribute weight proportionally
+        adjusted_weight = r["weight"] / total_valid_weight
+        final_score += r["score"] * adjusted_weight
+        used_engine_names.append(r["name"])
+        
+    return final_score, used_engine_names, failed_engines
+
+
 @router.post("", response_model=schemas.ScanResponse)
 async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(get_db)):
     url_str = str(scan_request.url)
@@ -105,12 +131,14 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     db.add(page_analysis_row)
 
     # 9. Calculate final risk score
-    final_risk_score = (
-        lexical_data["lexical_score"] * 0.21 +
-        domain_data["domain_score"] * 0.28 +
-        behavior_data["behavior_score"] * 0.21 +
-        ml_data["ml_score"] * 0.30
-    )
+    engines_results = [
+        {"name": "lexical", "score": lexical_data.get("lexical_score", 0.0), "weight": 0.21, "failed": False},
+        {"name": "domain", "score": domain_data.get("domain_score", 0.0), "weight": 0.28, "failed": False},
+        {"name": "behavior", "score": behavior_data.get("behavior_score", 0.0), "weight": 0.21, "failed": behavior_data.get("behavior_analysis_failed", False)},
+        {"name": "ml", "score": ml_data.get("ml_score", 0.0), "weight": 0.30, "failed": False},
+    ]
+    final_risk_score, engines_used, engines_failed = calculate_final_score(engines_results)
+    
     new_scan.final_risk_score = final_risk_score
     new_scan.verdict = "analyzed"
 
@@ -130,6 +158,8 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
         source=new_scan.source.value,
         verdict=new_scan.verdict,
         final_risk_score=new_scan.final_risk_score,
+        engines_used=engines_used,
+        engines_failed=engines_failed,
         lexical_analysis=schemas.LexicalAnalysisResponse(**lexical_data),
         domain_analysis=schemas.DomainAnalysisResponse(**domain_data),
         behavior_analysis=schemas.BehaviorAnalysisResponse(**behavior_data),

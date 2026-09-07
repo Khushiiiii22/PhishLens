@@ -60,3 +60,8 @@ Icon
 # Node / Frontend
 node_modules/
 dist/
+
+# ML Data (regenerate locally, too large for git)
+ml/data/*.csv
+ml/data/*.parquet
+!ml/data/.gitkeep
