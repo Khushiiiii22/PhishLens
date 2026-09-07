@@ -11,8 +11,10 @@ interface ResultsDashboardProps {
   onReset: () => void;
 }
 
+import React from "react";
+
 // Source icons (small inline SVGs)
-const SOURCE_ICONS: Record<string, JSX.Element> = {
+const SOURCE_ICONS: Record<string, React.ReactNode> = {
   email: (
     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -50,25 +52,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
   const domain = result.domain_analysis;
   const behavior = result.behavior_analysis;
 
-  // TEMPORARY: combined score = weighted sum of engine scores.
-  // Weights: lexical 0.30, domain 0.40, behavior 0.30.
-  // If behavior_analysis_failed, redistribute its 0.30 proportionally.
-  // TODO: Replace this with the real Adaptive Risk Fusion Engine score
-  // once it is built. This is only a placeholder for display purposes.
-  const lexScore = lexical?.lexical_score ?? 0;
-  const domScore = domain?.domain_score ?? 0;
-  const behScore = behavior?.behavior_score ?? 0;
-  const behaviorAvailable = behavior && !behavior.behavior_analysis_failed;
-
-  let combinedScore: number;
-  if (behaviorAvailable) {
-    // All 3 engines: 0.30 + 0.40 + 0.30 = 1.0
-    combinedScore = Math.round(lexScore * 0.30 + domScore * 0.40 + behScore * 0.30);
-  } else {
-    // Behavior unavailable: redistribute 0.30 proportionally across lex (0.30) + dom (0.40)
-    // New weights: lex = 0.30/0.70 ≈ 0.4286, dom = 0.40/0.70 ≈ 0.5714
-    combinedScore = Math.round(lexScore * (0.30 / 0.70) + domScore * (0.40 / 0.70));
-  }
+  const combinedScore = Math.round(result.final_risk_score ?? 0);
 
   return (
     <div className="min-h-screen bg-[#0F172A] px-4 py-10 font-sans antialiased">
@@ -84,6 +68,11 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         {/* ─── 1. VERDICT HEADER ─── */}
         <div className="flex flex-col items-center mb-8">
           <RiskGauge score={combinedScore} />
+          {result.engines_failed && result.engines_failed.length > 0 && (
+            <p className="mt-4 text-xs text-slate-400 font-medium">
+              Score calculated from {result.engines_used?.length ?? 0} of 4 engines
+            </p>
+          )}
         </div>
 
         {/* ─── 2. SCAN META ROW ─── */}
@@ -165,19 +154,8 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
             <EngineCard
               title="Website Behavior"
               score={behavior.behavior_score}
-              items={
-                behavior.behavior_analysis_failed
-                  ? [
-                      {
-                        label: "Status",
-                        value: (
-                          <span className="text-xs text-slate-600 italic">
-                            Page could not be analyzed (blocked or unreachable)
-                          </span>
-                        ),
-                      },
-                    ]
-                  : [
+              failed={behavior.behavior_analysis_failed}
+              items={[
                       {
                         label: "Login Form",
                         value: behavior.has_login_form
@@ -238,8 +216,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                               No popups
                             </span>,
                       },
-                    ]
-              }
+                    ]}
             />
           )}
         </div>

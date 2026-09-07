@@ -31,14 +31,25 @@ export interface BehaviorAnalysis {
   behavior_analysis_failed: boolean;
 }
 
+export interface MLAnalysis {
+  prediction: string;
+  confidence: number;
+  model_version: string;
+  ml_score: number;
+}
+
 export interface ScanResponse {
   id: number;
   url: string;
   source: string;
   verdict: string;
+  final_risk_score?: number;
+  engines_used?: string[];
+  engines_failed?: string[];
   lexical_analysis: LexicalAnalysis | null;
   domain_analysis: DomainAnalysis | null;
   behavior_analysis: BehaviorAnalysis | null;
+  ml_analysis: MLAnalysis | null;
 }
 
 const API_BASE = "http://127.0.0.1:8000";
