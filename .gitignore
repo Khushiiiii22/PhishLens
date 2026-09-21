@@ -65,3 +65,7 @@ dist/
 ml/data/*.csv
 ml/data/*.parquet
 !ml/data/.gitkeep
+*.db
+
+# ML virtual environment
+ml/venv/

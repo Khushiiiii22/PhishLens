@@ -8,3 +8,5 @@ joblib>=1.5
 jupyter>=1.1
 loguru>=0.7
 kagglehub>=0.3
+tensorflow>=2.21
+matplotlib>=3.10
