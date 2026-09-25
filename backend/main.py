@@ -2,21 +2,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import scan
 
+import os
+
 app = FastAPI(
     title="PhishLens XAI API",
     description="Explainable multi-engine phishing detection platform",
     version="1.0.0"
 )
 
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+if os.getenv("ALLOWED_ORIGIN"):
+    allowed_origins.append(os.getenv("ALLOWED_ORIGIN"))
+
 # CORS — allow the Vite React dev server to reach the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

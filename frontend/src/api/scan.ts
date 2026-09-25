@@ -60,7 +60,7 @@ export interface ScanResponse {
   ml_analysis: MLAnalysis | null;
 }
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 export async function submitScan(
   url: string,
