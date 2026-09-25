@@ -36,6 +36,13 @@ export interface MLAnalysis {
   confidence: number;
   model_version: string;
   ml_score: number;
+  models_agreed?: boolean;
+  rf_prediction?: string;
+  rf_confidence?: number;
+  rf_score?: number;
+  cnn_prediction?: string;
+  cnn_confidence?: number;
+  cnn_score?: number;
 }
 
 export interface ScanResponse {
@@ -44,6 +51,7 @@ export interface ScanResponse {
   source: string;
   verdict: string;
   final_risk_score?: number;
+  fusion_method?: string;
   engines_used?: string[];
   engines_failed?: string[];
   lexical_analysis: LexicalAnalysis | null;

@@ -4,6 +4,8 @@ import time
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from loguru import logger
+import os
+import pickle
 
 import models
 import schemas
@@ -11,12 +13,22 @@ from database import get_db
 from engines.lexical import analyze_lexical
 from engines.domain_intel import analyze_domain
 from engines.behavior import analyze_behavior
-from engines.ml_predict import predict_ml
+from engines.ml_predict import predict_ml, predict_deep, ensemble_ml_predictions
 
 router = APIRouter(
     prefix="/scan",
     tags=["Scan"]
 )
+
+# Load fusion meta-model
+FUSION_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "ml", "models", "fusion_meta_model.pkl")
+fusion_model = None
+try:
+    with open(FUSION_MODEL_PATH, "rb") as f:
+        fusion_model = pickle.load(f)
+    logger.info("[ML] Loaded fusion meta-model")
+except Exception as e:
+    logger.error(f"[ML] Failed to load fusion meta-model: {e}")
 
 def calculate_final_score(engines_results: list[dict]) -> tuple[float, list[str], list[str]]:
     valid_engines = []
@@ -78,18 +90,32 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
     )
     db.add(heuristic_row)
 
-    # 4. Run ML prediction (instant — uses the lexical features already computed)
-    ml_data = predict_ml(lexical_data)
+    # 4. Run BOTH ML models
+    #    a) Classical Random Forest (uses lexical features)
+    rf_data = predict_ml(lexical_data)
+    #    b) Deep CNN (uses raw URL text — no hand-crafted features)
+    cnn_data = predict_deep(url_str)
 
-    # 5. Insert ml_predictions row
-    ml_row = models.MlPrediction(
+    # 5. Ensemble the two ML predictions into a single signal
+    ml_data = ensemble_ml_predictions(rf_data, cnn_data)
+
+    # 6. Insert BOTH ml_predictions rows (one per model)
+    rf_row = models.MlPrediction(
         scan_id=new_scan.id,
-        model_name=ml_data.get("model_version", "RandomForest"),
-        confidence=ml_data["confidence"],
-        prediction=ml_data["prediction"],
-        model_version=ml_data["model_version"],
+        model_name="RandomForest",
+        confidence=rf_data["confidence"],
+        prediction=rf_data["prediction"],
+        model_version=rf_data["model_version"],
     )
-    db.add(ml_row)
+    cnn_row = models.MlPrediction(
+        scan_id=new_scan.id,
+        model_name="CharCNN",
+        confidence=cnn_data["confidence"],
+        prediction=cnn_data["prediction"],
+        model_version=cnn_data["model_version"],
+    )
+    db.add(rf_row)
+    db.add(cnn_row)
 
     # 6. Run domain intelligence + behavior engines IN PARALLEL
     #    Both are blocking I/O calls, so we offload them to threads
@@ -137,9 +163,30 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
         {"name": "behavior", "score": behavior_data.get("behavior_score", 0.0), "weight": 0.21, "failed": behavior_data.get("behavior_analysis_failed", False)},
         {"name": "ml", "score": ml_data.get("ml_score", 0.0), "weight": 0.30, "failed": False},
     ]
-    final_risk_score, engines_used, engines_failed = calculate_final_score(engines_results)
+    fallback_score, engines_used, engines_failed = calculate_final_score(engines_results)
+    
+    if not engines_failed and fusion_model is not None:
+        try:
+            # Meta-model expects: [lexical, domain, behavior, ml]
+            features = [[
+                lexical_data.get("lexical_score", 0.0),
+                domain_data.get("domain_score", 0.0),
+                behavior_data.get("behavior_score", 0.0),
+                ml_data.get("ml_score", 0.0)
+            ]]
+            probability = fusion_model.predict_proba(features)[0][1]
+            final_risk_score = float(round(probability * 100, 2))
+            fusion_method = "learned_meta_model"
+        except Exception as e:
+            logger.error(f"Meta-model inference failed: {e}")
+            final_risk_score = fallback_score
+            fusion_method = "weighted_fallback"
+    else:
+        final_risk_score = fallback_score
+        fusion_method = "weighted_fallback"
     
     new_scan.final_risk_score = final_risk_score
+    new_scan.fusion_method = fusion_method
     new_scan.verdict = "analyzed"
 
     # 10. Commit the ENTIRE transaction atomically
@@ -158,6 +205,7 @@ async def create_scan(scan_request: schemas.ScanRequest, db: Session = Depends(g
         source=new_scan.source.value,
         verdict=new_scan.verdict,
         final_risk_score=new_scan.final_risk_score,
+        fusion_method=new_scan.fusion_method,
         engines_used=engines_used,
         engines_failed=engines_failed,
         lexical_analysis=schemas.LexicalAnalysisResponse(**lexical_data),

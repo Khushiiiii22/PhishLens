@@ -18,6 +18,7 @@ class UrlScan(Base):
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
     final_risk_score = Column(Float, nullable=True)
     verdict = Column(String, nullable=True)
+    fusion_method = Column(String, nullable=True)
 
     # Relationships
     heuristic_results = relationship("HeuristicResult", back_populates="scan", cascade="all, delete-orphan", uselist=False)

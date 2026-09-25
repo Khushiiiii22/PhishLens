@@ -47,6 +47,13 @@ class MLAnalysisResponse(BaseModel):
     confidence: float
     model_version: str
     ml_score: float
+    models_agreed: Optional[bool] = None
+    rf_prediction: Optional[str] = None
+    rf_confidence: Optional[float] = None
+    rf_score: Optional[float] = None
+    cnn_prediction: Optional[str] = None
+    cnn_confidence: Optional[float] = None
+    cnn_score: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -57,6 +64,7 @@ class ScanResponse(BaseModel):
     source: str
     verdict: str
     final_risk_score: Optional[float] = None
+    fusion_method: Optional[str] = None
     engines_used: list[str] = []
     engines_failed: list[str] = []
     lexical_analysis: Optional[LexicalAnalysisResponse] = None

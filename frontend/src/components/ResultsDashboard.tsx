@@ -68,11 +68,32 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         {/* ─── 1. VERDICT HEADER ─── */}
         <div className="flex flex-col items-center mb-8">
           <RiskGauge score={combinedScore} />
-          {result.engines_failed && result.engines_failed.length > 0 && (
-            <p className="mt-4 text-xs text-slate-400 font-medium">
-              Score calculated from {result.engines_used?.length ?? 0} of 4 engines
-            </p>
-          )}
+          
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {result.engines_failed && result.engines_failed.length > 0 && (
+              <p className="text-xs text-slate-400 font-medium">
+                Score calculated from {result.engines_used?.length ?? 0} of 4 engines
+              </p>
+            )}
+            
+            {result.fusion_method && (
+              <div className="group relative flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 text-[11px] font-medium text-slate-400 cursor-help transition-colors hover:bg-slate-800">
+                <span>
+                  {result.fusion_method === "learned_meta_model" ? "Learned Fusion Model" : "Weighted Fallback"}
+                </span>
+                <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                
+                {/* Tooltip */}
+                <div className="absolute top-full mt-2 w-64 p-2 bg-slate-800 border border-slate-700 rounded shadow-xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center left-1/2 -translate-x-1/2">
+                  {result.fusion_method === "learned_meta_model" 
+                    ? "Learned Fusion Model: engine weights learned from training data." 
+                    : "Weighted Fallback: proportional weights used because one or more engines didn't complete."}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ─── 2. SCAN META ROW ─── */}
@@ -102,7 +123,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         </div>
 
         {/* ─── 3. ENGINE CARDS ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
           {/* Lexical Analysis */}
           {lexical && (
@@ -118,11 +139,27 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                 { label: "Entropy", value: lexical.entropy_score.toFixed(3) },
                 {
                   label: "Suspicious Keywords",
-                  value: <Badge positive={!lexical.has_suspicious_keywords} />,
+                  value: lexical.has_suspicious_keywords
+                    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Suspicious keywords found
+                      </span>
+                    : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        No suspicious keywords
+                      </span>,
                 },
                 {
                   label: "Punycode / Homoglyph",
-                  value: <Badge positive={!lexical.has_punycode_or_homoglyph} />,
+                  value: lexical.has_punycode_or_homoglyph
+                    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Punycode/homoglyph detected
+                      </span>
+                    : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        No punycode/homoglyph
+                      </span>,
                 },
               ]}
             />
@@ -217,6 +254,52 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                             </span>,
                       },
                     ]}
+            />
+          )}
+
+          {/* ML Ensemble */}
+          {result.ml_analysis && (
+            <EngineCard
+              title="ML Ensemble"
+              score={result.ml_analysis.ml_score}
+              items={[
+                {
+                  label: "Random Forest",
+                  value: result.ml_analysis.rf_prediction ? (
+                    <span className={`text-xs font-medium ${result.ml_analysis.rf_prediction === "phishing" ? "text-red-400" : "text-emerald-400"}`}>
+                      {result.ml_analysis.rf_prediction === "phishing" ? "Phishing" : "Legit"} ({((result.ml_analysis.rf_confidence ?? 0) * 100).toFixed(0)}%)
+                    </span>
+                  ) : "—",
+                },
+                {
+                  label: "Deep CNN",
+                  value: result.ml_analysis.cnn_prediction ? (
+                    <span className={`text-xs font-medium ${result.ml_analysis.cnn_prediction === "phishing" ? "text-red-400" : "text-emerald-400"}`}>
+                      {result.ml_analysis.cnn_prediction === "phishing" ? "Phishing" : "Legit"} ({((result.ml_analysis.cnn_confidence ?? 0) * 100).toFixed(0)}%)
+                    </span>
+                  ) : "—",
+                },
+                {
+                  label: "Consensus",
+                  value: result.ml_analysis.models_agreed === true ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      Models agree
+                    </span>
+                  ) : result.ml_analysis.models_agreed === false ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      Disagree — CNN weighted
+                    </span>
+                  ) : "—",
+                },
+                {
+                  label: "Ensemble Score",
+                  value: `${result.ml_analysis.ml_score}/100`,
+                },
+              ]}
             />
           )}
         </div>
