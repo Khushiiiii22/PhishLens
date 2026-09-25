@@ -20,9 +20,19 @@ from loguru import logger
 def _same_domain(url_a: str, url_b: str) -> bool:
     """Return True if two URLs share the same registered domain."""
     try:
-        return urlparse(url_a).hostname == urlparse(url_b).hostname
+        host_a = (urlparse(url_a).hostname or "").lower()
+        host_b = (urlparse(url_b).hostname or "").lower()
+        
+        if host_a.startswith("www."): host_a = host_a[4:]
+        if host_b.startswith("www."): host_b = host_b[4:]
+            
+        if host_a == host_b:
+            return True
+        if host_a.endswith("." + host_b) or host_b.endswith("." + host_a):
+            return True
+        return False
     except Exception:
-        return True  # can't parse → assume same
+        return True
 
 
 def _safe_result(failed: bool = True) -> dict:

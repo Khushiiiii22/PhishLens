@@ -55,7 +55,14 @@ Icon
 *.swp
 *.swo
 *~
-.DS_Store
+# Test scratch scripts
+test_fusion.py
+test_redirect.py
+backend/test_fusion.py
+backend/test_redirect.py
+
+# Logs
+*.log
 
 # Node / Frontend
 node_modules/
