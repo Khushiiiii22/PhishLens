@@ -24,7 +24,7 @@ from loguru import logger
 # ──────────────────────────────────────────────────────────────────────
 # Paths
 # ──────────────────────────────────────────────────────────────────────
-_MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "ml" / "models"
+_MODEL_DIR = Path(__file__).resolve().parent.parent / "ml" / "models"
 
 # ──────────────────────────────────────────────────────────────────────
 # 1. Classical Baseline — Random Forest
