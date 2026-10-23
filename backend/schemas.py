@@ -38,6 +38,8 @@ class BehaviorAnalysisResponse(BaseModel):
     popup_detected: bool
     behavior_score: float
     behavior_analysis_failed: bool
+    behavior_failure_reason: Optional[str] = None
+    blocked_private_requests: int = 0
 
     class Config:
         from_attributes = True
@@ -58,6 +60,17 @@ class MLAnalysisResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ThreatIntelAnalysisResponse(BaseModel):
+    total_engines_flagged: int = 0
+    total_engines_checked: int = 0
+    threat_score: float = 0.0
+    threat_intel_failed: bool = False
+    never_seen_before: bool = False
+    rate_limited_incomplete: bool = False
+
+    class Config:
+        from_attributes = True
+
 class ScanResponse(BaseModel):
     id: int
     url: str
@@ -65,13 +78,15 @@ class ScanResponse(BaseModel):
     verdict: str
     final_risk_score: Optional[float] = None
     fusion_method: Optional[str] = None
+    final_weights: dict[str, float] = {}
     engines_used: list[str] = []
     engines_failed: list[str] = []
+    engines_incomplete: list[str] = []
     lexical_analysis: Optional[LexicalAnalysisResponse] = None
     domain_analysis: Optional[DomainAnalysisResponse] = None
     behavior_analysis: Optional[BehaviorAnalysisResponse] = None
     ml_analysis: Optional[MLAnalysisResponse] = None
+    threat_intelligence_analysis: Optional[ThreatIntelAnalysisResponse] = None
 
     class Config:
         from_attributes = True
-

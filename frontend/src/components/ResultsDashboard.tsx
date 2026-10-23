@@ -70,27 +70,57 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
           <RiskGauge score={combinedScore} />
           
           <div className="mt-4 flex flex-col items-center gap-2">
-            {result.engines_failed && result.engines_failed.length > 0 && (
+            {(result.engines_failed && result.engines_failed.length > 0) || (result.engines_incomplete && result.engines_incomplete.length > 0) ? (
               <p className="text-xs text-slate-400 font-medium">
-                Score calculated from {result.engines_used?.length ?? 0} of 4 engines
+                Score calculated from {result.engines_used?.length ?? 0} of 5 engines
               </p>
-            )}
+            ) : null}
             
             {result.fusion_method && (
               <div className="group relative flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 text-[11px] font-medium text-slate-400 cursor-help transition-colors hover:bg-slate-800">
-                <span>
-                  {result.fusion_method === "learned_meta_model" ? "Learned Fusion Model" : "Weighted Fallback"}
-                </span>
+                <span>Weighted Fusion</span>
                 <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 
                 {/* Tooltip */}
-                <div className="absolute top-full mt-2 w-64 p-2 bg-slate-800 border border-slate-700 rounded shadow-xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center left-1/2 -translate-x-1/2">
-                  {result.fusion_method === "learned_meta_model" 
-                    ? "Learned Fusion Model: engine weights learned from training data." 
-                    : "Weighted Fallback: proportional weights used because one or more engines didn't complete."}
+                <div className="absolute top-full mt-2 w-80 p-2.5 bg-slate-800 border border-slate-700 rounded-lg shadow-xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center left-1/2 -translate-x-1/2">
+                  <p className="leading-relaxed mb-1.5">
+                    Fixed expert-chosen engine weights, rescaled over the engines that completed. Threat intelligence carries 15% when VirusTotal has a record.
+                  </p>
+                  {result.final_weights && Object.keys(result.final_weights).length > 0 && (
+                    <div className="pt-1.5 border-t border-slate-700/70 text-[11px] text-slate-400 flex flex-wrap justify-center gap-x-2 gap-y-1 font-mono">
+                      {Object.entries(result.final_weights).map(([engine, weight]) => (
+                        <span key={engine}>
+                          {engine}: {(weight * 100).toFixed(1)}%
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+            )}
+
+            {/* Score composition pills */}
+            {result.final_weights && Object.keys(result.final_weights).length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1 text-[11px] text-slate-400 font-mono">
+                {Object.entries(result.final_weights).map(([engine, weight]) => {
+                  const labelMap: Record<string, string> = {
+                    lexical: "Lexical",
+                    domain: "Domain",
+                    behavior: "Behavior",
+                    ml: "ML",
+                    threat_intel: "Threat Intel",
+                  };
+                  return (
+                    <span
+                      key={engine}
+                      className="bg-slate-800/60 border border-slate-700/50 rounded-md px-2 py-0.5 text-slate-300"
+                    >
+                      {labelMap[engine] ?? engine}: {(weight * 100).toFixed(1)}%
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -123,7 +153,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         </div>
 
         {/* ─── 3. ENGINE CARDS ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
 
           {/* Lexical Analysis */}
           {lexical && (
@@ -192,6 +222,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
               title="Website Behavior"
               score={behavior.behavior_score}
               failed={behavior.behavior_analysis_failed}
+              failureReason={behavior.behavior_failure_reason}
               items={[
                       {
                         label: "Login Form",
@@ -253,6 +284,21 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
                               No popups
                             </span>,
                       },
+                      ...(behavior.blocked_private_requests && behavior.blocked_private_requests > 0
+                        ? [
+                            {
+                              label: "Internal Access",
+                              value: (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400" title={`${behavior.blocked_private_requests} request(s) blocked`}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                  Page tried to reach internal addresses
+                                </span>
+                              ),
+                            },
+                          ]
+                        : []),
                     ]}
             />
           )}
@@ -302,6 +348,39 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
               ]}
             />
           )}
+
+          {/* Threat Intelligence */}
+          {result.threat_intelligence_analysis && (() => {
+            const ti = result.threat_intelligence_analysis;
+            const isNeverSeen = ti.never_seen_before;
+            const isIncomplete = ti.rate_limited_incomplete;
+            const isFailed = ti.threat_intel_failed;
+            const isNormal = !isNeverSeen && !isIncomplete && !isFailed;
+
+            return (
+              <EngineCard
+                title="Threat Intelligence"
+                score={ti.threat_score}
+                failed={isFailed}
+                neverSeen={isNeverSeen}
+                incomplete={isIncomplete}
+                items={isNormal ? [
+                  {
+                    label: "Engines Flagged",
+                    value: (
+                      <span className={`text-xs font-medium ${ti.total_engines_flagged > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                        {ti.total_engines_flagged} of {ti.total_engines_checked} engines
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Threat Score",
+                    value: `${ti.threat_score}/100`,
+                  },
+                ] : []}
+              />
+            );
+          })()}
         </div>
 
         {/* ─── 4. SCAN ANOTHER ─── */}

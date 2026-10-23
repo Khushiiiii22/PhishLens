@@ -2,19 +2,18 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install dependencies (Playwright needs system deps)
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers and their dependencies
-RUN playwright install chromium
-RUN playwright install-deps chromium
+# Install Chromium and system dependencies required for headless browser execution
+RUN playwright install --with-deps chromium
 
-# Copy the backend code and models
+# Copy backend application, ML models, and configuration
 COPY . .
 
 # Expose the API port
 EXPOSE 8000
 
-# Run in production mode
+# Run with production settings
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

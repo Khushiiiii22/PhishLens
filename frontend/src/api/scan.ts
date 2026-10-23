@@ -29,6 +29,8 @@ export interface BehaviorAnalysis {
   popup_detected: boolean;
   behavior_score: number;
   behavior_analysis_failed: boolean;
+  behavior_failure_reason?: string | null;
+  blocked_private_requests?: number;
 }
 
 export interface MLAnalysis {
@@ -45,6 +47,15 @@ export interface MLAnalysis {
   cnn_score?: number;
 }
 
+export interface ThreatIntelAnalysis {
+  total_engines_flagged: number;
+  total_engines_checked: number;
+  threat_score: number;
+  threat_intel_failed: boolean;
+  never_seen_before: boolean;
+  rate_limited_incomplete: boolean;
+}
+
 export interface ScanResponse {
   id: number;
   url: string;
@@ -52,12 +63,15 @@ export interface ScanResponse {
   verdict: string;
   final_risk_score?: number;
   fusion_method?: string;
+  final_weights?: Record<string, number>;
   engines_used?: string[];
   engines_failed?: string[];
+  engines_incomplete?: string[];
   lexical_analysis: LexicalAnalysis | null;
   domain_analysis: DomainAnalysis | null;
   behavior_analysis: BehaviorAnalysis | null;
   ml_analysis: MLAnalysis | null;
+  threat_intelligence_analysis: ThreatIntelAnalysis | null;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";

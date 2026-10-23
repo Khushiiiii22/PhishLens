@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+venv/
+.pytest_cache/
+
+# Environment / Secrets
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
