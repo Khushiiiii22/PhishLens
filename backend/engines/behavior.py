@@ -161,6 +161,7 @@ def analyze_behavior(url: str) -> dict:
         # ── Intercept every request (redirects, iframes, subresources) ──
         # Fail-closed: any exception during the check aborts the request.
         main_frame_blocked = False
+        guard_cache: dict[str, BaseException | None] = {}
 
         def _handle_route(route):
             nonlocal blocked_private_count, main_frame_blocked
@@ -173,25 +174,66 @@ def analyze_behavior(url: str) -> dict:
                     pass
                 return
 
+            # 1. Guard check first (cached per hostname within this scan)
+            host = urlparse(req_url).hostname or ""
+            exc_to_raise: BaseException | None = None
+
+            if host in guard_cache:
+                cached = guard_cache[host]
+                if isinstance(cached, BaseException):
+                    exc_to_raise = cached
+            else:
+                try:
+                    resolve_and_guard(req_url)
+                    guard_cache[host] = None
+                except BaseException as exc:
+                    guard_cache[host] = exc
+                    exc_to_raise = exc
+
+            if exc_to_raise is not None:
+                if isinstance(exc_to_raise, PrivateTargetError):
+                    logger.warning("[Behavior] Aborting request to non-public address: {}", req_url)
+                    blocked_private_count += 1
+                    if route.request.is_navigation_request() and route.request.frame == page.main_frame:
+                        main_frame_blocked = True
+                    try:
+                        route.abort("blockedbyclient")
+                    except Exception:
+                        pass
+                    return
+                elif isinstance(exc_to_raise, (socket.gaierror, socket.herror)):
+                    try:
+                        route.abort("namenotresolved")
+                    except Exception:
+                        pass
+                    return
+                else:
+                    # Fail closed: if we can't determine whether the target
+                    # is safe, abort the request rather than allowing it.
+                    logger.warning("[Behavior] Guard check failed for {}, aborting (fail-closed): {}", req_url, exc_to_raise)
+                    blocked_private_count += 1
+                    if route.request.is_navigation_request() and route.request.frame == page.main_frame:
+                        main_frame_blocked = True
+                    try:
+                        route.abort("blockedbyclient")
+                    except Exception:
+                        pass
+                    return
+
+            # 2. Guard passed. Abort heavy assets (images, media, fonts) to save bandwidth and execution time.
+            resource_type = route.request.resource_type
+            if resource_type in ("image", "media", "font"):
+                try:
+                    route.abort("blockedbyclient")
+                except Exception:
+                    pass
+                return
+
+            # 3. Allow other safe resources (scripts, styles, documents, xhr/fetch)
             try:
-                resolve_and_guard(req_url)
                 route.continue_()
-            except PrivateTargetError:
-                logger.warning("[Behavior] Aborting request to non-public address: {}", req_url)
-                blocked_private_count += 1
-                # Check if this is a main-frame navigation
-                if route.request.is_navigation_request() and route.request.frame == page.main_frame:
-                    main_frame_blocked = True
-                route.abort("blockedbyclient")
-            except (socket.gaierror, socket.herror):
-                # Unresolvable domain (NXDOMAIN / DNS failure)
-                route.abort("namenotresolved")
-            except Exception as exc:
-                # Fail closed: if we can't determine whether the target
-                # is safe, abort the request rather than allowing it.
-                logger.warning("[Behavior] Guard check failed for {}, aborting (fail-closed): {}", req_url, exc)
-                blocked_private_count += 1
-                route.abort("blockedbyclient")
+            except Exception:
+                pass
 
         page.route("**/*", _handle_route)
 
