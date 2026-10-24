@@ -282,8 +282,20 @@ function App() {
 
         {/* Error display */}
         {error && (
-          <div className="mt-4 bg-red-950/30 border border-red-900/40 rounded-md px-4 py-3">
-            <p className="text-xs text-red-400">{error}</p>
+          <div
+            id="scan-error-message"
+            className={`mt-4 rounded-md px-4 py-3 flex items-start gap-2.5 border ${
+              error.toLowerCase().includes("busy")
+                ? "bg-amber-950/30 border-amber-800/40 text-amber-300"
+                : error.toLowerCase().includes("limit")
+                ? "bg-amber-950/30 border-amber-800/40 text-amber-300"
+                : "bg-red-950/30 border-red-900/40 text-red-400"
+            }`}
+          >
+            <span className="text-xs select-none mt-0.5">
+              {error.toLowerCase().includes("busy") || error.toLowerCase().includes("limit") ? "⏳" : "⚠️"}
+            </span>
+            <p className="text-xs font-medium leading-relaxed">{error}</p>
           </div>
         )}
       </div>

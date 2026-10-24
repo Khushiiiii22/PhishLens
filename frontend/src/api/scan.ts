@@ -88,9 +88,20 @@ export async function submitScan(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail?.[0]?.msg ?? `Request failed with status ${response.status}`
-    );
+    const detail = errorBody?.detail;
+    let message = "";
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (Array.isArray(detail) && detail[0]?.msg) {
+      message = detail[0].msg;
+    } else if (response.status === 503) {
+      message = "Scanner busy, try again";
+    } else if (response.status === 429) {
+      message = "Rate limit exceeded: maximum 10 scans per hour";
+    } else {
+      message = `Request failed with status ${response.status}`;
+    }
+    throw new Error(message);
   }
 
   return response.json();
