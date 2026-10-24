@@ -58,6 +58,80 @@ function App() {
 
   const canSubmit = isValidUrl(url) && source !== null && !scanning;
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mockState = params.get("ti_state");
+    if (mockState) {
+      const isNeverSeen = mockState === "never_seen";
+      const isIncomplete = mockState === "incomplete";
+      const baseResult: ScanResponse = {
+        id: 999,
+        url: isNeverSeen ? "https://phishlens-brandnew-verify.org/login" : "https://www.google.com/",
+        source: "email",
+        verdict: "analyzed",
+        final_risk_score: isNeverSeen ? 48.5 : isIncomplete ? 52.0 : 4.1,
+        fusion_method: "weighted",
+        final_weights: isNeverSeen || isIncomplete
+          ? { lexical: 0.2658, domain: 0.3544, ml: 0.3797 }
+          : { lexical: 0.1785, domain: 0.238, behavior: 0.1785, ml: 0.255, threat_intel: 0.15 },
+        engines_used: isNeverSeen || isIncomplete ? ["lexical", "domain", "ml"] : ["lexical", "domain", "behavior", "ml", "threat_intel"],
+        engines_failed: isNeverSeen || isIncomplete ? ["behavior"] : [],
+        engines_incomplete: isIncomplete ? ["threat_intel"] : [],
+        lexical_analysis: {
+          url_length: 23,
+          dot_count: 2,
+          hyphen_count: 0,
+          digit_count: 0,
+          special_char_count: 0,
+          entropy_score: 3.642,
+          has_suspicious_keywords: false,
+          has_punycode_or_homoglyph: false,
+          lexical_score: 0.0
+        },
+        domain_analysis: {
+          domain_age_days: 10620,
+          registrar: "MarkMonitor, Inc.",
+          ssl_valid: true,
+          ssl_issuer: "Google Trust Services",
+          dnssec_enabled: false,
+          domain_score: 10.0
+        },
+        behavior_analysis: {
+          has_login_form: false,
+          has_hidden_iframe: false,
+          has_js_redirect: false,
+          external_form_action: false,
+          popup_detected: false,
+          behavior_score: 0.0,
+          behavior_analysis_failed: isNeverSeen || isIncomplete,
+          behavior_failure_reason: isNeverSeen || isIncomplete ? "dns_failure" : null
+        },
+        ml_analysis: {
+          prediction: "legitimate",
+          confidence: 0.9331,
+          model_version: "ensemble(baseline_lexical_v1+deep_cnn_v1)",
+          ml_score: 6.7,
+          models_agreed: true,
+          rf_prediction: "legitimate",
+          rf_confidence: 0.876,
+          rf_score: 12.4,
+          cnn_prediction: "legitimate",
+          cnn_confidence: 0.989,
+          cnn_score: 1.0
+        },
+        threat_intelligence_analysis: {
+          total_engines_flagged: 0,
+          total_engines_checked: isNeverSeen || isIncomplete ? 0 : 93,
+          threat_score: 0.0,
+          threat_intel_failed: false,
+          never_seen_before: isNeverSeen,
+          rate_limited_incomplete: isIncomplete
+        }
+      };
+      setScanResult(baseResult);
+    }
+  }, []);
+
   // Rotate through analysis step messages while scanning
   useEffect(() => {
     if (scanning) {
@@ -208,8 +282,20 @@ function App() {
 
         {/* Error display */}
         {error && (
-          <div className="mt-4 bg-red-950/30 border border-red-900/40 rounded-md px-4 py-3">
-            <p className="text-xs text-red-400">{error}</p>
+          <div
+            id="scan-error-message"
+            className={`mt-4 rounded-md px-4 py-3 flex items-start gap-2.5 border ${
+              error.toLowerCase().includes("busy")
+                ? "bg-amber-950/30 border-amber-800/40 text-amber-300"
+                : error.toLowerCase().includes("limit")
+                ? "bg-amber-950/30 border-amber-800/40 text-amber-300"
+                : "bg-red-950/30 border-red-900/40 text-red-400"
+            }`}
+          >
+            <span className="text-xs select-none mt-0.5">
+              {error.toLowerCase().includes("busy") || error.toLowerCase().includes("limit") ? "⏳" : "⚠️"}
+            </span>
+            <p className="text-xs font-medium leading-relaxed">{error}</p>
           </div>
         )}
       </div>

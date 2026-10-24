@@ -25,7 +25,7 @@ class UrlScan(Base):
     domain_intelligence_results = relationship("DomainIntelligenceResult", back_populates="scan", cascade="all, delete-orphan", uselist=False)
     page_analysis = relationship("PageAnalysis", back_populates="scan", cascade="all, delete-orphan", uselist=False)
     ml_predictions = relationship("MlPrediction", back_populates="scan", cascade="all, delete-orphan")
-    threat_intelligence_results = relationship("ThreatIntelligenceResult", back_populates="scan", cascade="all, delete-orphan")
+    threat_intelligence_results = relationship("ThreatIntelligenceResult", back_populates="scan", cascade="all, delete-orphan", uselist=False)
     reports = relationship("Report", back_populates="scan", cascade="all, delete-orphan")
 
 
@@ -95,10 +95,13 @@ class ThreatIntelligenceResult(Base):
     __tablename__ = "threat_intelligence_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    scan_id = Column(Integer, ForeignKey("url_scans.id", ondelete="CASCADE"), nullable=False)
-    source = Column(String, nullable=False)
-    detections = Column(Integer, default=0)
-    raw_response = Column(JSON, nullable=True)
+    scan_id = Column(Integer, ForeignKey("url_scans.id", ondelete="CASCADE"), nullable=False, unique=True)
+    total_engines_flagged = Column(Integer, default=0)
+    total_engines_checked = Column(Integer, default=0)
+    threat_score = Column(Float, default=0.0)
+    threat_intel_failed = Column(Boolean, default=False)
+    never_seen_before = Column(Boolean, default=False)
+    rate_limited_incomplete = Column(Boolean, default=False)
 
     scan = relationship("UrlScan", back_populates="threat_intelligence_results")
 

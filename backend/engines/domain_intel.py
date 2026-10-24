@@ -20,6 +20,10 @@ import dns.resolver
 import dns.name
 from loguru import logger
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from url_guard import resolve_and_guard, PrivateTargetError
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers — each one handles its own errors
@@ -172,6 +176,22 @@ def analyze_domain(url: str) -> dict:
     """
     start = time.perf_counter()
     logger.info("[Domain Intel] Starting analysis for: {}", url)
+
+    # ── SSRF guard: block private/internal targets ──
+    try:
+        resolve_and_guard(url)
+    except PrivateTargetError:
+        logger.warning("[Domain Intel] Blocked private target: {}", url)
+        return {
+            "domain_age_days": None,
+            "registrar": None,
+            "ssl_valid": False,
+            "ssl_issuer": None,
+            "dnssec_enabled": False,
+            "domain_score": 80.0,
+        }
+    except Exception:
+        pass  # DNS failure will be caught by individual lookups
 
     domain = _extract_domain(url)
 

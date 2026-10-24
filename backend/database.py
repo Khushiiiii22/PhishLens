@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # We load the DATABASE_URL from .env
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip("'\"")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set. Please set it in your .env file.")
