@@ -1,0 +1,15 @@
+name: Supabase Database Keepalive
+
+on:
+  schedule:
+    # Run every 3 days at 00:00 UTC to prevent Supabase free tier auto-pause
+    - cron: '0 0 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping DB Health Endpoint
+        run: |
+          curl --fail --max-time 120 "${{ secrets.BACKEND_URL }}/health/db"

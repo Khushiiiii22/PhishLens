@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 from routers import scan
+from database import get_db
 
 import os
 
@@ -34,3 +38,12 @@ app.include_router(scan.router)
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the PhishLens XAI API"}
+
+@app.get("/health/db")
+def health_db(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return JSONResponse(status_code=200, content={"status": "ok"})
+    except Exception:
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
