@@ -72,7 +72,7 @@
       color: #22D3EE;
     }
 
-    /* Common Card */
+    /* Card */
     .card {
       background-color: #1E293B;
       border: 1px solid #334155;
@@ -144,6 +144,13 @@
       color: #F87171;
       margin-bottom: 12px;
       line-height: 1.4;
+    }
+    .scan-disclosure {
+      font-size: 11px;
+      color: #64748B;
+      text-align: center;
+      margin-top: 8px;
+      line-height: 1.35;
     }
 
     /* Buttons */
@@ -257,19 +264,19 @@
       margin-bottom: 8px;
       border: 3px solid;
     }
-    .score-circle.legit {
+    .score-circle.low {
       background: rgba(16, 185, 129, 0.15);
       border-color: #10B981;
       color: #34D399;
       box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
     }
-    .score-circle.suspicious {
+    .score-circle.medium {
       background: rgba(245, 158, 11, 0.15);
       border-color: #F59E0B;
       color: #FBBF24;
       box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
     }
-    .score-circle.phish {
+    .score-circle.high {
       background: rgba(239, 68, 68, 0.15);
       border-color: #EF4444;
       color: #F87171;
@@ -283,17 +290,24 @@
       margin-top: 2px;
     }
     .verdict-title {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
     }
-    .verdict-title.legit { color: #34D399; }
-    .verdict-title.suspicious { color: #FBBF24; }
-    .verdict-title.phish { color: #F87171; }
-    .verdict-meta {
+    .verdict-title.low { color: #34D399; }
+    .verdict-title.medium { color: #FBBF24; }
+    .verdict-title.high { color: #F87171; }
+    .verdict-guarantee {
       font-size: 11px;
       color: #94A3B8;
       margin-top: 4px;
+      font-style: italic;
+    }
+    .verdict-meta {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 4px;
+      font-weight: 500;
     }
 
     /* Engine Cards */
@@ -313,7 +327,12 @@
     .engine-row.green { border-left-color: #10B981; }
     .engine-row.amber { border-left-color: #F59E0B; }
     .engine-row.red { border-left-color: #EF4444; }
-    .engine-row.failed { border-left-color: #475569; opacity: 0.7; }
+    .engine-row.sky { border-left-color: #0EA5E9; }
+    .engine-row.failed {
+      border-left-color: #64748B;
+      background: #182234;
+      opacity: 0.85;
+    }
 
     .engine-header {
       display: flex;
@@ -328,6 +347,10 @@
       font-size: 11px;
       font-family: monospace;
       color: #94A3B8;
+      font-weight: 600;
+    }
+    .engine-score.na {
+      color: #64748B;
     }
     .engine-details {
       font-size: 11px;
@@ -335,11 +358,11 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      line-height: 1.4;
     }
-    .engine-detail-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
+    .engine-details.reason {
+      color: #94A3B8;
+      font-style: italic;
     }
 
     /* Result action bar */
@@ -381,7 +404,7 @@
     </button>
   </div>
 
-  <!-- 1. Initial State: URL confirmation and Scan trigger -->
+  <!-- 1. Initial State: URL confirmation and Scan trigger (NO auto-scan on open) -->
   <div id="view-initial">
     <div class="card">
       <div class="card-label">
@@ -403,6 +426,7 @@
       </svg>
       Scan this page
     </button>
+    <p class="scan-disclosure">Sends this page's address to PhishLens when you click Scan.</p>
   </div>
 
   <!-- 2. Loading State: Inline scanning progress -->
@@ -417,17 +441,18 @@
   <!-- 3. Results State: Inline risk score and 5-engine breakdown -->
   <div id="view-results" style="display: none;">
     <div class="verdict-header">
-      <div id="res-score-circle" class="score-circle legit">
+      <div id="res-score-circle" class="score-circle low">
         <span id="res-score-value">0</span>
         <span class="score-subtext">/100</span>
       </div>
-      <div id="res-verdict-title" class="verdict-title legit">LEGITIMATE</div>
-      <div id="res-verdict-meta" class="verdict-meta">Weighted fusion from 5 engines</div>
+      <div id="res-verdict-title" class="verdict-title low">LOW RISK</div>
+      <div id="res-verdict-guarantee" class="verdict-guarantee">No red flags found. This is not a guarantee.</div>
+      <div id="res-verdict-meta" class="verdict-meta">Score calculated from 5 engines</div>
     </div>
 
     <!-- 5 Engine Cards -->
     <div class="engine-list">
-      <!-- Lexical -->
+      <!-- Lexical Analysis -->
       <div id="eng-lexical" class="engine-row green">
         <div class="engine-header">
           <span>Lexical Analysis</span>
@@ -442,7 +467,7 @@
         </div>
       </div>
 
-      <!-- Domain Intel -->
+      <!-- Domain Intelligence -->
       <div id="eng-domain" class="engine-row green">
         <div class="engine-header">
           <span>Domain Intelligence</span>
@@ -477,7 +502,7 @@
           <span id="eng-ml-score" class="engine-score">7/100</span>
         </div>
         <div id="eng-ml-details" class="engine-details">
-          <span id="eng-ml-pred">Legitimate</span>
+          <span id="eng-ml-pred">Prediction: Phish / Legit</span>
           <span>·</span>
           <span id="eng-ml-agree">Models agree</span>
           <span>·</span>
@@ -511,7 +536,7 @@
   <!-- 4. Error State -->
   <div id="view-error" style="display: none;">
     <div class="warning-box" style="margin-top: 10px;">
-      <strong style="display: block; margin-bottom: 4px;">⚠️ Scan Failed</strong>
+      <strong id="error-title" style="display: block; margin-bottom: 4px;">⚠️ Scan Failed</strong>
       <span id="error-text">An unexpected error occurred.</span>
     </div>
     <div class="action-row">

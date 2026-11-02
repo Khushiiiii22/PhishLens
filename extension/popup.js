@@ -1,7 +1,7 @@
 import { isScannable, unwrapRedirect, sourceFor, buildDashboardUrl } from "./lib/urls.js";
 
-const DEFAULT_API_URL = "http://127.0.0.1:8000";
-const DEFAULT_DASHBOARD_URL = "http://localhost:5173";
+const DEFAULT_API_URL = "https://phishlens-1-27oz.onrender.com";
+const DEFAULT_DASHBOARD_URL = "https://phishlens-1-27oz.onrender.com";
 
 const SOURCE_LABELS = {
   email: "Email",
@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const resScoreCircle = document.getElementById("res-score-circle");
   const resScoreValue = document.getElementById("res-score-value");
   const resVerdictTitle = document.getElementById("res-verdict-title");
+  const resVerdictGuarantee = document.getElementById("res-verdict-guarantee");
   const resVerdictMeta = document.getElementById("res-verdict-meta");
 
   const engLexicalScore = document.getElementById("eng-lexical-score");
@@ -73,6 +74,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const resOpenDashboardBtn = document.getElementById("res-open-dashboard-btn");
 
   // Error elements
+  const errorTitle = document.getElementById("error-title");
   const errorText = document.getElementById("error-text");
   const errRetryBtn = document.getElementById("err-retry-btn");
   const errBackBtn = document.getElementById("err-back-btn");
@@ -82,7 +84,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const optionsLink = document.getElementById("options-link");
 
   let stepInterval = null;
-  let currentResult = null;
   let targetScanUrl = "";
   let targetSource = null;
 
@@ -107,9 +108,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     openOptions();
   });
 
-  // Query Active Tab
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const rawUrl = activeTab?.url || "";
+  // Query Active Tab (or read ?url= if provided for testing)
+  const searchParams = new URLSearchParams(window.location.search);
+  let rawUrl = searchParams.get("url");
+  if (!rawUrl) {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    rawUrl = activeTab?.url || "";
+  }
 
   urlDisplay.textContent = rawUrl || "No active tab URL found";
   urlDisplay.title = rawUrl;
@@ -167,67 +172,97 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderResults(data) {
-    currentResult = data;
     const finalScore = Math.max(0, Math.min(100, Math.round(data.final_risk_score ?? 0)));
     resScoreValue.textContent = String(finalScore);
 
-    // Score Circle & Verdict
+    // Score Bands: 0-30 LOW RISK, 31-60 MEDIUM RISK, 61-100 HIGH RISK
+    // Never use words "safe" or "legitimate" as a verdict!
     resScoreCircle.className = "score-circle";
     resVerdictTitle.className = "verdict-title";
 
     if (finalScore <= 30) {
-      resScoreCircle.classList.add("legit");
-      resVerdictTitle.classList.add("legit");
-      resVerdictTitle.textContent = "LEGITIMATE / SAFE";
+      resScoreCircle.classList.add("low");
+      resVerdictTitle.classList.add("low");
+      resVerdictTitle.textContent = "LOW RISK";
+      resVerdictGuarantee.textContent = "No red flags found. This is not a guarantee.";
+      resVerdictGuarantee.style.display = "block";
     } else if (finalScore <= 60) {
-      resScoreCircle.classList.add("suspicious");
-      resVerdictTitle.classList.add("suspicious");
-      resVerdictTitle.textContent = "SUSPICIOUS ACTIVITY";
+      resScoreCircle.classList.add("medium");
+      resVerdictTitle.classList.add("medium");
+      resVerdictTitle.textContent = "MEDIUM RISK";
+      resVerdictGuarantee.textContent = "Suspicious indicators detected.";
+      resVerdictGuarantee.style.display = "block";
     } else {
-      resScoreCircle.classList.add("phish");
-      resVerdictTitle.classList.add("phish");
-      resVerdictTitle.textContent = "PHISHING DETECTED";
+      resScoreCircle.classList.add("high");
+      resVerdictTitle.classList.add("high");
+      resVerdictTitle.textContent = "HIGH RISK";
+      resVerdictGuarantee.textContent = "High probability of phishing or malicious activity.";
+      resVerdictGuarantee.style.display = "block";
     }
 
+    // Score calculated from X of Y engines note
+    const hasFailed = (data.engines_failed && data.engines_failed.length > 0) ||
+                      (data.engines_incomplete && data.engines_incomplete.length > 0);
     const enginesUsedCount = data.engines_used ? data.engines_used.length : 5;
-    resVerdictMeta.textContent = `Score fused from ${enginesUsedCount} of 5 detection engines`;
 
-    // 1. Lexical
+    if (hasFailed) {
+      resVerdictMeta.textContent = `Score calculated from ${enginesUsedCount} of 5 engines`;
+    } else {
+      resVerdictMeta.textContent = "Score calculated from 5 engines";
+    }
+
+    // 1. Lexical Analysis
     if (data.lexical_analysis) {
       const lex = data.lexical_analysis;
       const score = Math.round(lex.lexical_score);
       engLexicalScore.textContent = `${score}/100`;
-      engLexicalLen.textContent = `Len: ${lex.url_length}`;
+      engLexicalScore.className = "engine-score";
+      engLexicalLen.textContent = `Length: ${lex.url_length} chars`;
       engLexicalEntropy.textContent = `Entropy: ${lex.entropy_score.toFixed(2)}`;
-      engLexicalKeywords.textContent = lex.has_suspicious_keywords ? "⚠️ Suspicious words" : "Clean keywords";
+      engLexicalKeywords.textContent = lex.has_suspicious_keywords ? "⚠️ Suspicious keywords" : "No suspicious keywords";
       engLexicalRow.className = `engine-row ${score <= 30 ? "green" : score <= 60 ? "amber" : "red"}`;
     }
 
-    // 2. Domain
+    // 2. Domain Intelligence
     if (data.domain_analysis) {
       const dom = data.domain_analysis;
       const score = Math.round(dom.domain_score);
       engDomainScore.textContent = `${score}/100`;
+      engDomainScore.className = "engine-score";
       const ageDays = dom.domain_age_days;
-      engDomainAge.textContent = ageDays !== null ? (ageDays >= 365 ? `${Math.floor(ageDays/365)} yrs` : `${ageDays} days`) : "Age: Unknown";
+      engDomainAge.textContent = ageDays !== null ? (ageDays >= 365 ? `Age: ${Math.floor(ageDays/365)} yrs` : `Age: ${ageDays} days`) : "Age: Unknown";
       engDomainSsl.textContent = dom.ssl_valid ? "SSL: Valid" : "SSL: Invalid";
-      engDomainReg.textContent = dom.registrar ? dom.registrar.split(/[,.]/)[0] : "Registrar: Unknown";
+      engDomainReg.textContent = dom.registrar ? `Reg: ${dom.registrar.split(/[,.]/)[0]}` : "Reg: Unknown";
       engDomainRow.className = `engine-row ${score <= 30 ? "green" : score <= 60 ? "amber" : "red"}`;
     }
 
-    // 3. Behavior
+    // 3. Website Behavior
     if (data.behavior_analysis) {
       const beh = data.behavior_analysis;
       if (beh.behavior_analysis_failed) {
+        // Greyed out with N/A and reason (NEVER a green 0/100)
         engBehaviorScore.textContent = "N/A";
-        engBehaviorLogin.textContent = "Analysis unavailable / domain unreachable";
-        engBehaviorRedirect.textContent = "";
+        engBehaviorScore.className = "engine-score na";
         engBehaviorRow.className = "engine-row failed";
+
+        let reasonText = "Analysis failed — site blocked automated access or timed out";
+        if (beh.behavior_failure_reason === "dns_failure") {
+          reasonText = "Analysis failed — domain unreachable";
+        } else if (beh.behavior_failure_reason === "timeout") {
+          reasonText = "Analysis failed — request timed out";
+        } else if (beh.behavior_failure_reason === "blocked") {
+          reasonText = "Analysis failed — site blocked automated access";
+        } else if (beh.behavior_failure_reason === "blocked_private_address") {
+          reasonText = "Analysis blocked — target resolves to a private/internal address";
+        }
+        engBehaviorLogin.textContent = reasonText;
+        engBehaviorRedirect.textContent = "";
       } else {
         const score = Math.round(beh.behavior_score);
         engBehaviorScore.textContent = `${score}/100`;
+        engBehaviorScore.className = "engine-score";
         engBehaviorLogin.textContent = beh.has_login_form ? "⚠️ Login form found" : "No login form";
-        engBehaviorRedirect.textContent = beh.has_js_redirect ? "⚠️ Redirects" : "No redirect";
+        engBehaviorRedirect.textContent = beh.has_js_redirect ? "⚠️ Redirects detected" : "No redirects";
         engBehaviorRow.className = `engine-row ${score <= 30 ? "green" : score <= 60 ? "amber" : "red"}`;
       }
     }
@@ -237,30 +272,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       const ml = data.ml_analysis;
       const score = Math.round(ml.ml_score);
       engMlScore.textContent = `${score}/100`;
-      engMlPred.textContent = ml.prediction === "phishing" ? "Predicted Phish" : "Predicted Legit";
-      engMlAgree.textContent = ml.models_agreed ? "Models agree" : "Models disagree";
+      engMlScore.className = "engine-score";
+      engMlPred.textContent = ml.prediction === "phishing" ? "RF/CNN: Phishing flag" : "RF/CNN: Baseline flag clear";
+      engMlAgree.textContent = ml.models_agreed ? "Models agree" : "Disagree — CNN weighted";
       engMlConf.textContent = `${((ml.confidence ?? 0.9) * 100).toFixed(0)}% conf`;
       engMlRow.className = `engine-row ${score <= 30 ? "green" : score <= 60 ? "amber" : "red"}`;
     }
 
-    // 5. Threat Intel
+    // 5. Threat Intelligence
     if (data.threat_intelligence_analysis) {
       const ti = data.threat_intelligence_analysis;
       if (ti.never_seen_before) {
-        engTiScore.textContent = "—";
-        engTiEngines.textContent = "No prior records (URL never seen by VirusTotal)";
-        engTiRow.className = "engine-row failed";
+        // Never seen before: sky blue, N/A score
+        engTiScore.textContent = "N/A";
+        engTiScore.className = "engine-score na";
+        engTiEngines.textContent = "No prior reports — URL never seen by VirusTotal";
+        engTiRow.className = "engine-row sky";
       } else if (ti.rate_limited_incomplete) {
-        engTiScore.textContent = "…";
-        engTiEngines.textContent = "Rate-limited by threat intelligence provider";
-        engTiRow.className = "engine-row failed";
+        // Rate limited: amber, N/A score
+        engTiScore.textContent = "N/A";
+        engTiScore.className = "engine-score na";
+        engTiEngines.textContent = "Rate-limited — analysis incomplete, excluded from score";
+        engTiRow.className = "engine-row amber";
       } else if (ti.threat_intel_failed) {
         engTiScore.textContent = "N/A";
-        engTiEngines.textContent = "Lookup timed out";
+        engTiScore.className = "engine-score na";
+        engTiEngines.textContent = "Analysis failed — threat intel lookup timed out";
         engTiRow.className = "engine-row failed";
       } else {
         const score = Math.round(ti.threat_score);
         engTiScore.textContent = `${score}/100`;
+        engTiScore.className = "engine-score";
         engTiEngines.textContent = `${ti.total_engines_flagged} of ${ti.total_engines_checked} engines flagged`;
         engTiRow.className = `engine-row ${score === 0 ? "green" : score <= 30 ? "amber" : "red"}`;
       }
@@ -278,7 +320,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       dashboardUrl: DEFAULT_DASHBOARD_URL
     });
 
-    const apiBase = storage.apiUrl || DEFAULT_API_URL;
+    let apiBase = storage.apiUrl || DEFAULT_API_URL;
+    if (searchParams.get("api")) {
+      apiBase = searchParams.get("api");
+    }
 
     try {
       const response = await fetch(`${apiBase}/scan`, {
@@ -295,19 +340,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       stopStepAnimation();
 
       if (!response.ok) {
-        let msg = `Server error HTTP ${response.status}`;
-        try {
-          const body = await response.json();
-          if (body && body.detail) {
-            msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
-          }
-        } catch {
-          // Keep generic
-        }
+        let msg = "";
         if (response.status === 503) {
-          msg = "Scanner is currently busy analyzing another URL. Please try again in a moment.";
+          msg = "Scanner busy, try again";
         } else if (response.status === 429) {
-          msg = "Rate limit reached (10 scans per hour limit). Please try again later.";
+          msg = "Rate limit exceeded: maximum 10 scans per hour";
+        } else {
+          try {
+            const body = await response.json();
+            if (body?.detail) {
+              msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+            }
+          } catch {
+            // ignore JSON parse error
+          }
+          if (!msg) {
+            msg = `Request failed with status ${response.status}`;
+          }
         }
         throw new Error(msg);
       }
@@ -316,9 +365,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderResults(data);
     } catch (err) {
       stopStepAnimation();
-      errorText.textContent = err instanceof Error ? err.message : "Unable to reach PhishLens backend server.";
+      const rawMsg = err instanceof Error ? err.message : "Unable to reach PhishLens backend server.";
+      errorTitle.textContent = "⚠️ Scan Failed";
+      if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
+        errorText.textContent = "Network error: Unable to connect to PhishLens backend. Please verify your API Base URL in Settings.";
+      } else {
+        errorText.textContent = rawMsg;
+      }
       setView("error");
     }
+  }
+
+  // ONLY scan when button is clicked (never on open).
+  // If explicitly requested via ?autoscan=true (for automated testing harness), run scan.
+  if (searchParams.get("autoscan") === "true" && scannable) {
+    performScan();
   }
 
   scanBtn.addEventListener("click", performScan);

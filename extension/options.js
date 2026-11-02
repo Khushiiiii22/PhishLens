@@ -1,7 +1,6 @@
-const DEFAULT_API_URL = "http://127.0.0.1:8000";
-const DEFAULT_DASHBOARD_URL = "http://localhost:5173";
-
-const RENDER_CLOUD_URL = "https://phishlens-1-27oz.onrender.com";
+const DEFAULT_RENDER_URL = "https://phishlens-1-27oz.onrender.com";
+const LOCALHOST_API_URL = "http://localhost:8000";
+const LOCALHOST_DASHBOARD_URL = "http://localhost:5173";
 
 function showStatus(message, isError = false) {
   const statusEl = document.getElementById("status");
@@ -28,29 +27,33 @@ function isValidHttpUrl(str) {
 document.addEventListener("DOMContentLoaded", async () => {
   const apiInput = document.getElementById("api-url");
   const dashboardInput = document.getElementById("dashboard-url");
-  const useLocalBtn = document.getElementById("btn-use-local");
+  const useLocalhostBtn = document.getElementById("btn-use-localhost");
   const useRenderBtn = document.getElementById("btn-use-render");
   const form = document.getElementById("options-form");
 
-  // Load existing settings
+  // Load existing settings with Render defaults
   const storage = await chrome.storage.sync.get({
-    apiUrl: DEFAULT_API_URL,
-    dashboardUrl: DEFAULT_DASHBOARD_URL,
+    apiUrl: DEFAULT_RENDER_URL,
+    dashboardUrl: DEFAULT_RENDER_URL,
   });
 
-  apiInput.value = storage.apiUrl || DEFAULT_API_URL;
-  dashboardInput.value = storage.dashboardUrl || DEFAULT_DASHBOARD_URL;
+  apiInput.value = storage.apiUrl || DEFAULT_RENDER_URL;
+  dashboardInput.value = storage.dashboardUrl || DEFAULT_RENDER_URL;
 
-  useLocalBtn?.addEventListener("click", () => {
-    apiInput.value = "http://127.0.0.1:8000";
-    dashboardInput.value = "http://localhost:5173";
-    showStatus("Set to local development URLs. Click 'Save Settings' to apply.");
+  useLocalhostBtn?.addEventListener("click", async () => {
+    apiInput.value = LOCALHOST_API_URL;
+    dashboardInput.value = LOCALHOST_DASHBOARD_URL;
+    await chrome.storage.sync.set({
+      apiUrl: LOCALHOST_API_URL,
+      dashboardUrl: LOCALHOST_DASHBOARD_URL,
+    });
+    showStatus("Set to localhost (API: http://localhost:8000) and saved!");
   });
 
   useRenderBtn?.addEventListener("click", () => {
-    apiInput.value = RENDER_CLOUD_URL;
-    dashboardInput.value = RENDER_CLOUD_URL;
-    showStatus("Set to Render cloud URLs. Click 'Save Settings' to apply.");
+    apiInput.value = DEFAULT_RENDER_URL;
+    dashboardInput.value = DEFAULT_RENDER_URL;
+    showStatus("Reset to Render defaults. Click 'Save Settings' to apply.");
   });
 
   form?.addEventListener("submit", async (e) => {
@@ -60,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const rawDashboard = dashboardInput.value.trim();
 
     if (!isValidHttpUrl(rawApi)) {
-      showStatus("API URL must be a valid http:// or https:// address.", true);
+      showStatus("API Base URL must be a valid http:// or https:// address.", true);
       return;
     }
 

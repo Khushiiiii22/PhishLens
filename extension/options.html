@@ -151,39 +151,39 @@
 
     <form id="options-form">
       <div class="form-group">
-        <label for="api-url">Backend API Endpoint</label>
+        <label for="api-url">API Base URL</label>
         <p class="help-text">
-          Target FastAPI server URL for inline popup scans (default: http://127.0.0.1:8000).
+          Backend API server URL used for phishing scans (default: https://phishlens-1-27oz.onrender.com).
         </p>
         <input
           id="api-url"
           type="text"
-          placeholder="http://127.0.0.1:8000"
+          placeholder="https://phishlens-1-27oz.onrender.com"
           spellcheck="false"
           autocomplete="off"
         />
       </div>
 
       <div class="form-group">
-        <label for="dashboard-url">Web Dashboard Base URL</label>
+        <label for="dashboard-url">Dashboard URL</label>
         <p class="help-text">
-          Web application endpoint opened if you click "View Full Web Dashboard".
+          Web application endpoint opened if you click "View Full Web Dashboard" or context menu links.
         </p>
         <input
           id="dashboard-url"
           type="text"
-          placeholder="http://localhost:5173"
+          placeholder="https://phishlens-1-27oz.onrender.com"
           spellcheck="false"
           autocomplete="off"
         />
       </div>
 
       <div class="quick-actions">
-        <button id="btn-use-local" type="button" class="secondary-btn">
-          ⚡ Use Local Development (127.0.0.1:8000 / localhost:5173)
+        <button id="btn-use-localhost" type="button" class="secondary-btn">
+          ⚡ Use localhost (API: http://localhost:8000)
         </button>
         <button id="btn-use-render" type="button" class="secondary-btn">
-          ☁️ Use Render Cloud (phishlens-1-27oz.onrender.com)
+          ☁️ Reset to Render Default (phishlens-1-27oz.onrender.com)
         </button>
       </div>
 

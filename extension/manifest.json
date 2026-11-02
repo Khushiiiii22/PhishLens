@@ -9,8 +9,8 @@
     "storage"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "https://phishlens-1-27oz.onrender.com/*",
+    "http://localhost:8000/*"
   ],
   "background": {
     "service_worker": "background.js",
