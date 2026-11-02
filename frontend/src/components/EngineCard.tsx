@@ -53,6 +53,19 @@ function getBarGlow(score: number, failed?: boolean, neverSeen?: boolean, incomp
   return "shadow-red-500/30";
 }
 
+function extractText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  if (typeof node === "object" && "props" in node) {
+    const props = (node as { props?: { children?: ReactNode; title?: string } }).props;
+    if (props?.title) return props.title;
+    if (props?.children) return extractText(props.children);
+  }
+  return "";
+}
+
 export function Badge({ positive }: { positive: boolean }) {
   return positive ? (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
@@ -146,14 +159,20 @@ export default function EngineCard({ title, score, items, failed, neverSeen, inc
             <span>Rate-limited — analysis incomplete, excluded from score</span>
           </div>
         ) : (
-          items.map((item) => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">{item.label}</span>
-              <span className="text-xs text-slate-300 font-medium text-right max-w-[55%] truncate">
-                {item.value}
-              </span>
-            </div>
-          ))
+          items.map((item) => {
+            const tooltip = extractText(item.value);
+            return (
+              <div key={item.label} className="flex items-start justify-between gap-2">
+                <span className="text-xs text-slate-500 shrink-0">{item.label}</span>
+                <span
+                  className="text-xs text-slate-300 font-medium text-right break-words min-w-0"
+                  title={tooltip || undefined}
+                >
+                  {item.value}
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

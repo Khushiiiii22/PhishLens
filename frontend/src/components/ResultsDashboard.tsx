@@ -56,7 +56,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
 
   return (
     <div className="min-h-screen bg-[#0F172A] px-4 py-10 font-sans antialiased">
-      <div className="max-w-[1080px] mx-auto">
+      <div className="max-w-[1080px] 2xl:max-w-[1440px] mx-auto">
 
         {/* Wordmark */}
         <div className="text-center mb-8">
@@ -153,7 +153,10 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         </div>
 
         {/* ─── 3. ENGINE CARDS ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+        <div
+          className="grid gap-4 mb-8"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
+        >
 
           {/* Lexical Analysis */}
           {lexical && (

@@ -55,8 +55,29 @@ function App() {
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScanTriggeredRef = useRef(false);
 
   const canSubmit = isValidUrl(url) && source !== null && !scanning;
+
+  const executeScan = useCallback(async (targetUrl: string, targetSource: Source) => {
+    setScanning(true);
+    setError(null);
+
+    try {
+      const result: ScanResponse = await submitScan(targetUrl.trim(), targetSource);
+      setScanResult(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(msg);
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    if (!canSubmit || !source) return;
+    await executeScan(url, source);
+  }, [url, source, canSubmit, executeScan]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -129,8 +150,43 @@ function App() {
         }
       };
       setScanResult(baseResult);
+      return;
     }
-  }, []);
+
+    const rawUrl = params.get("url");
+    const rawSource = params.get("source");
+    const autoscan = params.get("autoscan");
+
+    let validUrl: string | null = null;
+    let validSource: Source | null = null;
+
+    if (rawUrl !== null) {
+      const trimmedUrl = rawUrl.trim();
+      const isHttpOrHttps = /^https?:\/\/.+/i.test(trimmedUrl);
+      if (isHttpOrHttps && trimmedUrl.length <= 2048 && isValidUrl(trimmedUrl)) {
+        validUrl = trimmedUrl;
+        setUrl(trimmedUrl);
+      } else {
+        setError("Invalid URL parameter: must start with http:// or https:// and be under 2048 characters.");
+      }
+    }
+
+    if (rawSource === "email" || rawSource === "social_media" || rawSource === "message") {
+      validSource = rawSource;
+      setSource(validSource);
+    }
+
+    if (rawUrl !== null || rawSource !== null || autoscan !== null) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (autoscan === "true" && validUrl && validSource) {
+      if (!autoScanTriggeredRef.current) {
+        autoScanTriggeredRef.current = true;
+        executeScan(validUrl, validSource);
+      }
+    }
+  }, [executeScan]);
 
   // Rotate through analysis step messages while scanning
   useEffect(() => {
@@ -148,23 +204,6 @@ function App() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [scanning]);
-
-  const handleSubmit = useCallback(async () => {
-    if (!canSubmit || !source) return;
-
-    setScanning(true);
-    setError(null);
-
-    try {
-      const result: ScanResponse = await submitScan(url.trim(), source);
-      setScanResult(result);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred";
-      setError(msg);
-    } finally {
-      setScanning(false);
-    }
-  }, [url, source, canSubmit]);
 
   const handleReset = useCallback(() => {
     setScanResult(null);
