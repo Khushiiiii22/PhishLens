@@ -15,6 +15,10 @@ from database import get_db
 from unittest.mock import MagicMock
 
 
+# All integration tests in this file use True-Client-IP to set a deterministic
+# client IP that is immune to TRUSTED_PROXY_HOPS changes.
+
+
 @pytest.fixture(autouse=True)
 def clean_limits():
     """Ensure clean limits and released semaphore before and after each test."""
@@ -97,7 +101,7 @@ class TestScanLimits:
         })
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            headers = {"X-Forwarded-For": "203.0.113.195, 10.0.0.1"}
+            headers = {"True-Client-IP": "203.0.113.195"}
 
             # 10 scans succeed
             for _ in range(10):
@@ -110,7 +114,7 @@ class TestScanLimits:
             assert "Rate limit exceeded" in resp.json()["detail"]
 
             # Different IP is not blocked
-            other_headers = {"X-Forwarded-For": "198.51.100.99"}
+            other_headers = {"True-Client-IP": "198.51.100.99"}
             resp_other = await client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers=other_headers)
             assert resp_other.status_code == 200
 
@@ -158,14 +162,14 @@ class TestScanLimits:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # Start scan 1 in background task
             task1 = asyncio.create_task(
-                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"X-Forwarded-For": "1.1.1.1"})
+                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"True-Client-IP": "1.1.1.1"})
             )
 
             # Wait briefly to let task1 acquire semaphore
             await asyncio.sleep(0.05)
 
             # Scan 2 attempts while task1 is running; times out after 0.3s
-            r2 = await client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"X-Forwarded-For": "2.2.2.2"})
+            r2 = await client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"True-Client-IP": "2.2.2.2"})
             assert r2.status_code == 503
             assert r2.json()["detail"] == "Scanner busy, try again"
 
@@ -213,11 +217,11 @@ class TestScanLimits:
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             task1 = asyncio.create_task(
-                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"X-Forwarded-For": "3.3.3.3"})
+                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"True-Client-IP": "3.3.3.3"})
             )
             await asyncio.sleep(0.02)
             task2 = asyncio.create_task(
-                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"X-Forwarded-For": "4.4.4.4"})
+                client.post("/scan", json={"url": "https://example.com", "source": "email"}, headers={"True-Client-IP": "4.4.4.4"})
             )
 
             r1, r2 = await asyncio.gather(task1, task2)

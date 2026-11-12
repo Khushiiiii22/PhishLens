@@ -39,38 +39,96 @@ def get_scan_semaphore() -> asyncio.Semaphore:
     return _scan_semaphore
 
 
-# Per-IP rate limiting: 10 scans per hour
+# ---------------------------------------------------------------------------
+# Per-IP rate limiting
+# ---------------------------------------------------------------------------
 _ip_scan_history: dict[str, list[float]] = {}
-_RATE_LIMIT_MAX = 10
+_RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_PER_HOUR", "10"))
 _RATE_LIMIT_WINDOW_SECONDS = 3600.0
+_RATE_LIMIT_MAX_KEYS = 10_000
+
+# Number of trusted reverse-proxy hops between the internet and this server.
+# Render adds one hop; a CDN in front adds another.  Default 2 is safe for
+# Render behind its own edge proxy.
+_TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "2"))
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP using first address in X-Forwarded-For or direct client host."""
+    """Derive the real client IP from proxy headers, safe against forgery.
+
+    Resolution order:
+      1. ``True-Client-IP`` header (set by CDN/edge; single value).
+      2. ``X-Forwarded-For`` at index ``-TRUSTED_PROXY_HOPS`` — the entry
+         appended by the *first* trusted proxy.  The leftmost entry (index 0)
+         is **never** used because the client can forge it.
+      3. ``request.client.host`` (direct TCP peer).
+    """
+    # 1. True-Client-IP (Cloudflare, Akamai, …)
+    tci = request.headers.get("True-Client-IP")
+    if tci:
+        ip = tci.strip().split(",")[0].strip()
+        if ip:
+            return ip
+
+    # 2. X-Forwarded-For — pick the entry at -TRUSTED_PROXY_HOPS
     xff = request.headers.get("X-Forwarded-For")
     if xff:
-        # First address in X-Forwarded-For
-        return xff.split(",")[0].strip()
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        idx = -_TRUSTED_PROXY_HOPS
+        if abs(idx) <= len(parts):
+            return parts[idx]
+        # Fewer entries than expected hops — fall through to peer IP.
+        # Do NOT use parts[0]; it can be forged.
+
+    # 3. Direct connection peer
     if request.client and request.client.host:
         return request.client.host
     return "127.0.0.1"
 
 
-def _check_rate_limit(client_ip: str) -> None:
-    """Verify that client_ip has not exceeded 10 scans within the past hour."""
+def _evict_expired_entries() -> None:
+    """Remove IP entries older than the rate-limit window and cap the store at
+    ``_RATE_LIMIT_MAX_KEYS`` by evicting the oldest-activity keys first."""
     now = time.time()
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+
+    # Pass 1: purge expired timestamps and drop empty keys
+    dead_keys: list[str] = []
+    for ip, timestamps in _ip_scan_history.items():
+        timestamps[:] = [t for t in timestamps if t >= cutoff]
+        if not timestamps:
+            dead_keys.append(ip)
+    for k in dead_keys:
+        del _ip_scan_history[k]
+
+    # Pass 2: if still over capacity, evict the oldest-activity keys
+    if len(_ip_scan_history) > _RATE_LIMIT_MAX_KEYS:
+        by_oldest = sorted(_ip_scan_history.items(), key=lambda kv: kv[1][-1])
+        excess = len(_ip_scan_history) - _RATE_LIMIT_MAX_KEYS
+        for ip, _ in by_oldest[:excess]:
+            del _ip_scan_history[ip]
+
+
+def _check_rate_limit(client_ip: str) -> None:
+    """Verify that *client_ip* has not exceeded the per-hour scan limit."""
+    now = time.time()
+
+    # Periodic eviction: run whenever the store exceeds 90 % capacity
+    if len(_ip_scan_history) > _RATE_LIMIT_MAX_KEYS * 0.9:
+        _evict_expired_entries()
+
     history = _ip_scan_history.setdefault(client_ip, [])
     history[:] = [t for t in history if now - t < _RATE_LIMIT_WINDOW_SECONDS]
     if len(history) >= _RATE_LIMIT_MAX:
         logger.warning("[RateLimit] IP {} exceeded limit of {} scans/hour", client_ip, _RATE_LIMIT_MAX)
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded: maximum 10 scans per hour. Please try again later."
+            detail=f"Rate limit exceeded: maximum {_RATE_LIMIT_MAX} scans per hour. Please try again later."
         )
 
 
 def _record_scan_for_ip(client_ip: str) -> None:
-    """Record a scan timestamp for client_ip upon starting a scan."""
+    """Record a scan timestamp for *client_ip* upon starting a scan."""
     now = time.time()
     history = _ip_scan_history.setdefault(client_ip, [])
     history.append(now)
