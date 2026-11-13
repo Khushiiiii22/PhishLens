@@ -343,9 +343,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         let msg = "";
         if (response.status === 503) {
           msg = "Scanner busy, try again";
-        } else if (response.status === 429) {
-          msg = "Rate limit exceeded: maximum 10 scans per hour";
         } else {
+          // Attempt to extract dynamic detail message from backend response (e.g. dynamic 429 limit message)
           try {
             const body = await response.json();
             if (body?.detail) {
@@ -355,7 +354,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             // ignore JSON parse error
           }
           if (!msg) {
-            msg = `Request failed with status ${response.status}`;
+            if (response.status === 429) {
+              msg = "Rate limit exceeded. Please try again later.";
+            } else {
+              msg = `Request failed with status ${response.status}`;
+            }
           }
         }
         throw new Error(msg);
@@ -376,12 +379,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ONLY scan when button is clicked (never on open).
-  // If explicitly requested via ?autoscan=true (for automated testing harness), run scan.
-  if (searchParams.get("autoscan") === "true" && scannable) {
-    performScan();
-  }
-
+  // Scans are initiated exclusively when the user clicks the scan button (never on open)
   scanBtn.addEventListener("click", performScan);
   errRetryBtn.addEventListener("click", performScan);
   errBackBtn.addEventListener("click", () => setView("initial"));

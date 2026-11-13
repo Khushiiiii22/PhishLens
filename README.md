@@ -172,6 +172,9 @@ VITE_API_URL=http://localhost:8000
    - Right-click any link on a web page and select **Check with PhishLens** to scan links directly.
    - Open extension **Options** to switch the target backend between `http://localhost:8000` and the hosted Render instance.
 
+> [!IMPORTANT]
+> **Chrome Web Store Submission Notice**: The `http://localhost:8000/*` entry in `manifest.json` under `host_permissions` is strictly for local development and offline expo testing. It **must be removed** before submitting the extension package to the Chrome Web Store, leaving only the production backend domain (`https://phishlens-1-27oz.onrender.com/*`).
+
 ---
 
 ## 🧪 Running Tests
