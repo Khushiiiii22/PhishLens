@@ -76,3 +76,10 @@ ml/data/*.parquet
 
 # ML virtual environment
 ml/venv/
+
+# Evaluation raw feeds & un-hashed results (terms forbid redistribution)
+eval/openphish_raw.txt
+eval/results.jsonl
+eval/*raw*
+:memory:.ses
+
