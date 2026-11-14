@@ -1,0 +1,173 @@
+[
+  {
+    "url": "http://127.0.0.1:9000/login-verify.html",
+    "description": "Acme Test Portal (Credential Harvester Decoy)",
+    "final_risk_score": 70.36,
+    "risk_band": "HIGH RISK",
+    "engines_used": [
+      "lexical",
+      "domain",
+      "behavior",
+      "ml"
+    ],
+    "engines_failed": [],
+    "engines_incomplete": [
+      "threat_intel"
+    ],
+    "final_weights": {
+      "lexical": 0.21,
+      "domain": 0.28,
+      "behavior": 0.21,
+      "ml": 0.3
+    },
+    "breakdown": {
+      "lexical": {
+        "score": 35.3,
+        "suspicious_keywords": true,
+        "entropy": 4.282,
+        "length": 39
+      },
+      "domain": {
+        "score": 55.0,
+        "age_days": null,
+        "ssl_valid": false,
+        "dnssec": false
+      },
+      "behavior": {
+        "score": 85.0,
+        "has_login_form": true,
+        "external_form_action": true,
+        "has_hidden_iframe": true,
+        "has_js_redirect": false,
+        "blocked_private_requests": 0
+      },
+      "ml": {
+        "score": 99.0,
+        "prediction": "phishing",
+        "rf_score": 98.5,
+        "cnn_score": 99.4,
+        "models_agreed": true
+      },
+      "threat_intel": {
+        "score": 0.0,
+        "engines_flagged": 0,
+        "engines_checked": 0,
+        "never_seen_before": true
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:9000/clean.html",
+    "description": "Acme Documentation (Clean Static Page Decoy)",
+    "final_risk_score": 47.92,
+    "risk_band": "MEDIUM RISK",
+    "engines_used": [
+      "lexical",
+      "domain",
+      "behavior",
+      "ml"
+    ],
+    "engines_failed": [],
+    "engines_incomplete": [
+      "threat_intel"
+    ],
+    "final_weights": {
+      "lexical": 0.21,
+      "domain": 0.28,
+      "behavior": 0.21,
+      "ml": 0.3
+    },
+    "breakdown": {
+      "lexical": {
+        "score": 18.0,
+        "suspicious_keywords": false,
+        "entropy": 3.84,
+        "length": 32
+      },
+      "domain": {
+        "score": 55.0,
+        "age_days": null,
+        "ssl_valid": false,
+        "dnssec": false
+      },
+      "behavior": {
+        "score": 0.0,
+        "has_login_form": false,
+        "external_form_action": false,
+        "has_hidden_iframe": false,
+        "has_js_redirect": false,
+        "blocked_private_requests": 0
+      },
+      "ml": {
+        "score": 95.8,
+        "prediction": "phishing",
+        "rf_score": 99.4,
+        "cnn_score": 92.3,
+        "models_agreed": true
+      },
+      "threat_intel": {
+        "score": 0.0,
+        "engines_flagged": 0,
+        "engines_checked": 0,
+        "never_seen_before": true
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:9000/redirect.html",
+    "description": "Meta-Refresh Redirection Decoy",
+    "final_risk_score": 50.71,
+    "risk_band": "MEDIUM RISK",
+    "engines_used": [
+      "lexical",
+      "domain",
+      "behavior",
+      "ml"
+    ],
+    "engines_failed": [],
+    "engines_incomplete": [
+      "threat_intel"
+    ],
+    "final_weights": {
+      "lexical": 0.21,
+      "domain": 0.28,
+      "behavior": 0.21,
+      "ml": 0.3
+    },
+    "breakdown": {
+      "lexical": {
+        "score": 18.0,
+        "suspicious_keywords": false,
+        "entropy": 3.919,
+        "length": 35
+      },
+      "domain": {
+        "score": 55.0,
+        "age_days": null,
+        "ssl_valid": false,
+        "dnssec": false
+      },
+      "behavior": {
+        "score": 10.0,
+        "has_login_form": false,
+        "external_form_action": false,
+        "has_hidden_iframe": false,
+        "has_js_redirect": true,
+        "blocked_private_requests": 0
+      },
+      "ml": {
+        "score": 98.1,
+        "prediction": "phishing",
+        "rf_score": 98.9,
+        "cnn_score": 97.2,
+        "models_agreed": true
+      },
+      "threat_intel": {
+        "score": 0.0,
+        "engines_flagged": 0,
+        "engines_checked": 0,
+        "never_seen_before": true
+      }
+    }
+  }
+]
