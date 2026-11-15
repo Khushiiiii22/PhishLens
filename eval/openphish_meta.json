@@ -1,0 +1,8 @@
+{
+  "source": "OpenPhish Free Community Feed",
+  "url": "https://openphish.com/feed.txt",
+  "download_time_utc": "2026-11-13T07:00:02.823599+00:00",
+  "http_status": 200,
+  "raw_lines": 300,
+  "terms_of_use_summary": "OpenPhish Community Feed is provided solely for personal, independent, or academic research use on an AS-IS basis. Commercial use and redistribution are prohibited without prior written permission from OpenPhish."
+}
