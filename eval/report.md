@@ -37,7 +37,7 @@ Total                               73                  17            90
 - **Exact Two-Sided Binomial Test:** $p = \mathbf{0.0044}$ ($p < 0.01$).
 - **Continuity-Corrected McNemar $\chi^2$:** $\chi^2 = \frac{(|3 - 16| - 1)^2}{3 + 16} = \frac{144}{19} = 7.5789$, $p = \mathbf{0.0059}$.
 
-> **Statistical Takeaway:** The Deep CNN alone is **statistically significantly superior** ($p = 0.0044$) to the 4-engine heuristic fusion without threat intelligence on this benchmark. Heuristic fusion dilutes the CNN's strong signal when Behavior scores 0.0 on dead/blocked phishing pages and Domain WHOIS fails on shared hosting platforms.
+> **Statistical Takeaway:** The Deep CNN alone is **better at these settings on this sample (exact McNemar p = 0.0044)** than the 4-engine heuristic fusion without threat intelligence on this benchmark. Note that the McNemar comparison uses different flag thresholds (31 and 50), so it describes those settings on this sample; an AUC comparison would be fairer. Heuristic fusion dilutes the CNN's signal when Behavior scores 0.0 on dead/blocked phishing pages and Domain WHOIS fails on shared hosting platforms.
 
 ---
 
@@ -272,9 +272,10 @@ For the 20 phishing URLs queried against the VirusTotal v3 API (`/api/v3/urls/{i
 2. **No High-Risk Categorization (>=61):** Zero phishing URLs ($0/40$) reached the high-risk warning threshold (>=61). The system's heuristic fusion weights (0.21 lexical, 0.28 domain, 0.21 behavior, 0.30 ML) excessively dilute the ML prediction when behavior returns 0.0 on dead/blocked sites and domain WHOIS fails.
 3. **Severe Distribution Shift vs. In-Distribution (92%):** The models achieved ~92% accuracy on synthetic/historical datasets, but when confronted with live in-the-wild OpenPhish feeds, offline recall dropped to **50.0% [35.2%, 64.8%]**.
 4. **Small Sample Limits:** $N = 90$ yields wide confidence intervals (e.g. $[49.5\%, 77.9\%]$ for fusion recall). While mathematically rigorous, the sample size cannot provide sub-percent error bounds.
+5. **Infrastructure Domain Bias & Unreachable Pages:** The legitimate sample includes infrastructure domains users never click (e.g., `msftconnecttest.com`, `windowsupdate.com`, `awsdns-51.com`), and 16 of 50 legitimate pages were error, takedown or timeouts.
 
 ### What This Benchmark DOES Show
-1. **Character-Level Deep CNN is Resilient:** Stand-alone Deep CNN achieved **80.0% recall** and **18.0% FPR**, statistically significantly outperforming heuristic fusion ($p = 0.0044$).
+1. **Character-Level Deep CNN is Resilient:** Stand-alone Deep CNN achieved **80.0% recall** and **18.0% FPR**, better at these settings on this sample (exact McNemar p = 0.0044) than heuristic fusion. Note that the McNemar comparison uses different flag thresholds (31 and 50), so it describes those settings on this sample; an AUC comparison would be fairer.
 2. **Domain & Behavior Vulnerability to Modern Infrastructure:** 82.5% of modern phishing relies on shared cloud providers (`pages.dev`, `blogspot.com`, `workers.dev`), completely neutralizing domain age signals and evading headless browser scrapers through Cloudflare interstitial challenges.
 3. **Hard Negative Login Pages Challenge ML:** Well-known enterprise authentication portals (`auth.docker.com`, `auth0.com`, `id.atlassian.com`, `app.slack.com`) trigger false positive alerts due to lexical keyword overlap (`/login`, `auth`).
 
@@ -284,7 +285,7 @@ For the 20 phishing URLs queried against the VirusTotal v3 API (`/api/v3/urls/{i
 
 Benchmark metrics computed on a balanced or semi-balanced test set (40 phishing / 50 legitimate) drastically overstate the real-world precision experienced by users.
 
-In live consumer web browsing and enterprise email environments, the baseline prevalence of malicious phishing URLs is approximately **1%** ($P(\text{Phish}) = 0.01$, $P(\text{Legit}) = 0.99$).
+In live consumer web browsing and enterprise email environments, using an assumed illustrative prevalence of 1% (not measured) ($P(\text{Phish}) = 0.01$, $P(\text{Legit}) = 0.99$):
 
 ### Bayes' Theorem Formulation
 $$\text{Precision}_{1\%} = \frac{\text{Recall} \times P(\text{Phish})}{(\text{Recall} \times P(\text{Phish})) + (\text{FPR} \times P(\text{Legit}))}$$

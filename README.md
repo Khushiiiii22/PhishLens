@@ -194,11 +194,33 @@ node --test test/urls.test.js
 
 ---
 
+## 📊 Empirical Evaluation Summary
+
+PhishLens was evaluated on an honest, zero-contamination benchmark dataset ($N = 90$: 40 in-the-wild phishing URLs from OpenPhish, 40 benign domains from Tranco Top 5,000, and 10 hard-negative login pages). Full metrics and forensic telemetry are documented in [`eval/report.md`](eval/report.md).
+
+### Key Performance Metrics (with 95% Wilson Confidence Intervals)
+
+| Model / Configuration | Threshold | $N$ | Recall [95% CI] | FPR [95% CI] | Precision [95% CI] | F1 Score |
+|---|---|---|---|---|---|---|
+| **Fusion (Threat Intel Excluded)** | `>=31` | 90 | **50.0% [35.2%, 64.8%]** | **20.0% [11.2%, 33.0%]** | 66.7% [48.8%, 80.8%] | 57.1% |
+| **Fusion (With Threat Intel, VT Subset)** | `>=31` | 40 | **80.0% [58.4%, 91.9%]** | **20.0% [8.1%, 41.6%]** | 80.0% [58.4%, 91.9%] | 80.0% |
+| **Deep Character-Level CNN Alone** | `>=50` | 90 | **80.0% [65.2%, 89.5%]** | **18.0% [9.8%, 30.8%]** | 78.0% [63.3%, 88.0%] | 79.0% |
+| **Random Forest Baseline Alone** | `>=50` | 90 | **57.5% [42.2%, 71.5%]** | **36.0% [24.1%, 49.9%]** | 56.1% [41.0%, 70.1%] | 56.8% |
+| **ML Ensemble Alone (RF + CNN)** | `>=50` | 90 | **75.0% [59.8%, 85.8%]** | **20.0% [11.2%, 33.0%]** | 75.0% [59.8%, 85.8%] | 75.0% |
+
+- **Sub-Model vs Fusion Comparison**: The Deep CNN alone is better at these settings on this sample (exact McNemar $p = 0.0044$) than offline fusion ($\ge 31$). Note that this McNemar comparison uses different flag thresholds (31 for fusion, 50 for CNN), so it describes those specific operational settings on this sample; an AUC comparison would be fairer. Heuristic fusion dilutes the CNN's signal when behavior returns 0.0 on dead/blocked sites and domain WHOIS fails on shared hosting platforms.
+- **Base-Rate Caveat**: Using an assumed illustrative prevalence of 1% (not measured), an 18% false positive rate results in an expected real-world precision of **3.52%** (~27 false alarms per true positive).
+- **Infrastructure Shift**: 82.5% of tested phishing URLs resided on shared cloud platforms (`pages.dev`, `blogspot.com`, `workers.dev`), where subdomains lack independent WHOIS records and Cloudflare interstitial challenges block headless scrapers.
+- **Threat Intelligence Vendor Overlap**: 0 of 20 tested phishing URLs were `never_seen_before` on VirusTotal. OpenPhish is an active upstream vendor on VirusTotal (flagging 19/20 URLs), so VirusTotal lookups do not represent independent zero-day evidence for OpenPhish feeds.
+
+---
+
 ## ⚠️ Known Limitations & Scope
 
-- **Heuristic Weighted Fusion**: Risk scoring utilizes fixed, expert-configured heuristic weights, dynamically redistributed upon engine failure. It is **not** a learned meta-classifier or stacking model.
-- **Explainability Scope**: "Explainable AI" in PhishLens refers to full visibility into component engine outputs, individual feature flags (e.g. detected password fields, domain age, Punycode detection), and arithmetic score attribution. It does **not** employ SHAP, LIME, or neural gradient-based feature attribution maps.
-- **Accuracy Bounds**: No claim is made of absolute or universal system accuracy across all web traffic. Detection efficacy depends on URL availability, third-party API quotas, and the quality of runtime signals.
+- **Heuristic Weighted Fusion (No Learned Fusion)**: Risk scoring utilizes fixed, expert-configured heuristic weights, dynamically redistributed upon engine failure. It is **not** a learned meta-classifier, regression, or stacking model.
+- **Explainability Scope (No SHAP / Model Explainability)**: "Explainable AI" in PhishLens refers to full visibility into component engine outputs, individual feature flags (e.g. detected password fields, domain age, Punycode detection), and arithmetic score attribution. It does **not** employ SHAP, LIME, Integrated Gradients, or neural feature attribution maps.
+- **No Zero-Day Detection Claim**: The system does not claim unassisted zero-day detection on unindexed campaigns. Testing confirmed all active feeds were already known to upstream threat intelligence.
+- **No Whole-System Accuracy Claim**: No claim is made of universal or whole-system accuracy across arbitrary internet traffic. Detection efficacy depends on target availability, third-party API quotas, and the quality of runtime signals.
 - **Headless Browser Overhead & Concurrency**: Spawning headless Chromium instances per scan is compute- and memory-intensive. A concurrency semaphore restricts simultaneous browser executions (default 1 concurrent scan) to prevent server exhaustion.
 - **DNS Rebinding**: While the URL guard validates resolved IPs and intercepts subresource requests, full mitigation against DNS rebinding (e.g. 0-second TTL race conditions during low-level socket re-establishment) requires transport-layer egress firewall enforcement or pinned IP forward proxies.
 - **Ephemeral Rate Limiter**: The sliding-window IP rate limiter stores requests in-memory (capped at 10,000 keys with hourly eviction). Server restarts reset the tracking state unless backed by persistent external caching (such as Redis).
