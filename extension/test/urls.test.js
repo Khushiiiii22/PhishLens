@@ -149,27 +149,27 @@ test("sourceFor: returns null for other or invalid hosts", () => {
 
 test("buildDashboardUrl: encodes URL and appends source & autoscan when source is present", () => {
   const result = buildDashboardUrl(
-    "https://phishlens-1-27oz.onrender.com",
+    "https://phishlens-doyc.onrender.com",
     "https://example.com/login?redirect=1&ref=email",
     "email"
   );
 
   assert.equal(
     result,
-    "https://phishlens-1-27oz.onrender.com/?url=https%3A%2F%2Fexample.com%2Flogin%3Fredirect%3D1%26ref%3Demail&source=email&autoscan=true"
+    "https://phishlens-doyc.onrender.com/?url=https%3A%2F%2Fexample.com%2Flogin%3Fredirect%3D1%26ref%3Demail&source=email&autoscan=true"
   );
 });
 
 test("buildDashboardUrl: excludes source & autoscan when source is null", () => {
   const result = buildDashboardUrl(
-    "https://phishlens-1-27oz.onrender.com",
+    "https://phishlens-doyc.onrender.com",
     "https://example.com/plain",
     null
   );
 
   assert.equal(
     result,
-    "https://phishlens-1-27oz.onrender.com/?url=https%3A%2F%2Fexample.com%2Fplain"
+    "https://phishlens-doyc.onrender.com/?url=https%3A%2F%2Fexample.com%2Fplain"
   );
 });
 

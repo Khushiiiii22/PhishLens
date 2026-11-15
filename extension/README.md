@@ -14,7 +14,7 @@ In `manifest.json`:
 
 ```json
   "host_permissions": [
-    "https://phishlens-1-27oz.onrender.com/*",
+    "https://phishlens-doyc.onrender.com/*",
     "http://localhost:8000/*"
   ]
 ```
@@ -22,7 +22,7 @@ In `manifest.json`:
 > **IMPORTANT**:  
 > The `http://localhost:8000/*` host permission is intended **strictly for local development and offline expo demonstrations**.  
 > **It MUST be removed from `manifest.json` before any submission to the Chrome Web Store.**  
-> For production store releases, `host_permissions` must contain only the verified production backend origin (`https://phishlens-1-27oz.onrender.com/*`), and never `<all_urls>`.
+> For production store releases, `host_permissions` must contain only the verified production backend origin (`https://phishlens-doyc.onrender.com/*`), and never `<all_urls>`.
 
 ---
 

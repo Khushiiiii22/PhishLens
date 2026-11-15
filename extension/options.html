@@ -153,12 +153,12 @@
       <div class="form-group">
         <label for="api-url">API Base URL</label>
         <p class="help-text">
-          Backend API server URL used for phishing scans (default: https://phishlens-1-27oz.onrender.com).
+          Backend API server URL used for phishing scans (default: http://localhost:8000).
         </p>
         <input
           id="api-url"
           type="text"
-          placeholder="https://phishlens-1-27oz.onrender.com"
+          placeholder="http://localhost:8000"
           spellcheck="false"
           autocomplete="off"
         />
@@ -167,12 +167,12 @@
       <div class="form-group">
         <label for="dashboard-url">Dashboard URL</label>
         <p class="help-text">
-          Web application endpoint opened if you click "View Full Web Dashboard" or context menu links.
+          Web application endpoint opened if you click "View Full Web Dashboard" or context menu links (default: http://localhost:5173).
         </p>
         <input
           id="dashboard-url"
           type="text"
-          placeholder="https://phishlens-1-27oz.onrender.com"
+          placeholder="http://localhost:5173"
           spellcheck="false"
           autocomplete="off"
         />
@@ -183,7 +183,7 @@
           ⚡ Use localhost (API: http://localhost:8000)
         </button>
         <button id="btn-use-render" type="button" class="secondary-btn">
-          ☁️ Reset to Render Default (phishlens-1-27oz.onrender.com)
+          ☁️ Reset to Render Default (phishlens-doyc.onrender.com)
         </button>
       </div>
 

@@ -1,6 +1,9 @@
-const DEFAULT_RENDER_URL = "https://phishlens-1-27oz.onrender.com";
+const DEFAULT_RENDER_URL = "https://phishlens-doyc.onrender.com";
 const LOCALHOST_API_URL = "http://localhost:8000";
 const LOCALHOST_DASHBOARD_URL = "http://localhost:5173";
+
+const DEFAULT_API_URL = DEFAULT_RENDER_URL;
+const DEFAULT_DASHBOARD_URL = LOCALHOST_DASHBOARD_URL;
 
 function showStatus(message, isError = false) {
   const statusEl = document.getElementById("status");
@@ -31,14 +34,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   const useRenderBtn = document.getElementById("btn-use-render");
   const form = document.getElementById("options-form");
 
-  // Load existing settings with Render defaults
+  // Load existing settings with localhost defaults
   const storage = await chrome.storage.sync.get({
-    apiUrl: DEFAULT_RENDER_URL,
-    dashboardUrl: DEFAULT_RENDER_URL,
+    apiUrl: DEFAULT_API_URL,
+    dashboardUrl: DEFAULT_DASHBOARD_URL,
   });
 
-  apiInput.value = storage.apiUrl || DEFAULT_RENDER_URL;
-  dashboardInput.value = storage.dashboardUrl || DEFAULT_RENDER_URL;
+  let currentApi = storage.apiUrl || DEFAULT_API_URL;
+  let currentDashboard = storage.dashboardUrl || DEFAULT_DASHBOARD_URL;
+
+  // Fallback away from Render static frontend URL
+  if (currentApi === DEFAULT_RENDER_URL) {
+    currentApi = DEFAULT_API_URL;
+  }
+  if (currentDashboard === DEFAULT_RENDER_URL) {
+    currentDashboard = DEFAULT_DASHBOARD_URL;
+  }
+
+  apiInput.value = currentApi;
+  dashboardInput.value = currentDashboard;
 
   useLocalhostBtn?.addEventListener("click", async () => {
     apiInput.value = LOCALHOST_API_URL;
@@ -52,8 +66,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   useRenderBtn?.addEventListener("click", () => {
     apiInput.value = DEFAULT_RENDER_URL;
-    dashboardInput.value = DEFAULT_RENDER_URL;
-    showStatus("Reset to Render defaults. Click 'Save Settings' to apply.");
+    dashboardInput.value = LOCALHOST_DASHBOARD_URL;
+    showStatus("Set API to Render (phishlens-doyc.onrender.com). Click 'Save Settings' to apply.");
   });
 
   form?.addEventListener("submit", async (e) => {

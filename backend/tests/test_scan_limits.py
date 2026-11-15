@@ -20,8 +20,10 @@ from unittest.mock import MagicMock
 
 
 @pytest.fixture(autouse=True)
-def clean_limits():
+def clean_limits(monkeypatch):
     """Ensure clean limits and released semaphore before and after each test."""
+    import routers.scan as scan_mod
+    monkeypatch.setattr(scan_mod, "_RATE_LIMIT_MAX", 10)
     _reset_scan_limits()
     sem = get_scan_semaphore()
     while sem.locked():

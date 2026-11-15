@@ -1,6 +1,6 @@
 import { isScannable, unwrapRedirect, sourceFor, buildDashboardUrl } from "./lib/urls.js";
 
-const DEFAULT_DASHBOARD_URL = "https://phishlens-1-27oz.onrender.com";
+const DEFAULT_DASHBOARD_URL = "http://localhost:5173";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({

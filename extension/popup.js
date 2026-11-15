@@ -1,7 +1,7 @@
 import { isScannable, unwrapRedirect, sourceFor, buildDashboardUrl } from "./lib/urls.js";
 
-const DEFAULT_API_URL = "https://phishlens-1-27oz.onrender.com";
-const DEFAULT_DASHBOARD_URL = "https://phishlens-1-27oz.onrender.com";
+const DEFAULT_API_URL = "https://phishlens-doyc.onrender.com";
+const DEFAULT_DASHBOARD_URL = "http://localhost:5173";
 
 const SOURCE_LABELS = {
   email: "Email",
@@ -320,7 +320,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       dashboardUrl: DEFAULT_DASHBOARD_URL
     });
 
-    let apiBase = storage.apiUrl || DEFAULT_API_URL;
+    let apiBase = (storage.apiUrl || DEFAULT_API_URL).trim().replace(/\/+$/, "");
+    if (apiBase === "https://phishlens-1-27oz.onrender.com") {
+      apiBase = "https://phishlens-doyc.onrender.com";
+    }
     if (searchParams.get("api")) {
       apiBase = searchParams.get("api");
     }
@@ -346,12 +349,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
           // Attempt to extract dynamic detail message from backend response (e.g. dynamic 429 limit message)
           try {
-            const body = await response.json();
-            if (body?.detail) {
-              msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+            const errText = await response.text();
+            if (errText) {
+              try {
+                const body = JSON.parse(errText);
+                if (body?.detail) {
+                  msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+                }
+              } catch {
+                msg = errText.slice(0, 120);
+              }
             }
           } catch {
-            // ignore JSON parse error
+            // ignore parse errors
           }
           if (!msg) {
             if (response.status === 429) {
@@ -364,14 +374,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(msg);
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      if (!text || !text.trim()) {
+        throw new Error(`Empty response received from backend (${apiBase}). Please make sure the PhishLens backend server is running.`);
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Invalid response received from backend (${apiBase}). Expected JSON scan verdict.`);
+      }
+
       renderResults(data);
     } catch (err) {
       stopStepAnimation();
       const rawMsg = err instanceof Error ? err.message : "Unable to reach PhishLens backend server.";
       errorTitle.textContent = "⚠️ Scan Failed";
       if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
-        errorText.textContent = "Network error: Unable to connect to PhishLens backend. Please verify your API Base URL in Settings.";
+        errorText.textContent = `Network error: Unable to connect to PhishLens backend at ${apiBase}. Please verify the backend is running or update Settings.`;
       } else {
         errorText.textContent = rawMsg;
       }
@@ -389,7 +410,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const storage = await chrome.storage.sync.get({
       dashboardUrl: DEFAULT_DASHBOARD_URL
     });
-    const dashboardBase = storage.dashboardUrl || DEFAULT_DASHBOARD_URL;
+    let dashboardBase = (storage.dashboardUrl || DEFAULT_DASHBOARD_URL).trim().replace(/\/+$/, "");
+    if (dashboardBase === "https://phishlens-1-27oz.onrender.com") {
+      dashboardBase = DEFAULT_DASHBOARD_URL;
+    }
     const targetUrl = buildDashboardUrl(dashboardBase, targetScanUrl, targetSource);
     await chrome.tabs.create({ url: targetUrl });
   });

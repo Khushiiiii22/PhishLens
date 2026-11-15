@@ -9,7 +9,7 @@
     "storage"
   ],
   "host_permissions": [
-    "https://phishlens-1-27oz.onrender.com/*",
+    "https://phishlens-doyc.onrender.com/*",
     "http://localhost:8000/*"
   ],
   "background": {
