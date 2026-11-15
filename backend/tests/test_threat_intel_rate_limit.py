@@ -1,3 +1,4 @@
+import os
 import pytest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
@@ -5,6 +6,11 @@ from main import app
 import engines.threat_intel as ti
 
 client = TestClient(app)
+
+live_db = pytest.mark.skipif(
+    not os.getenv("RUN_LIVE_DB_TESTS"),
+    reason="Requires real Supabase database connection and writes scan records; set RUN_LIVE_DB_TESTS=1 to run"
+)
 
 def test_threat_intel_monkeypatch_rate_limit(monkeypatch):
     """Monkeypatch requests.get to return 429 and verify check_threat_intel returns rate_limited_incomplete."""
@@ -20,6 +26,7 @@ def test_threat_intel_monkeypatch_rate_limit(monkeypatch):
     assert res["never_seen_before"] is False
     assert res["threat_score"] == 0.0
 
+@live_db
 def test_scan_excludes_incomplete_threat_intel_from_fusion(monkeypatch):
     """Verify POST /scan excludes rate_limited_incomplete from fusion and lists in engines_incomplete."""
     def mock_check(url):
@@ -62,6 +69,7 @@ def test_scan_excludes_incomplete_threat_intel_from_fusion(monkeypatch):
     assert data["final_weights"]["ml"] == 0.30
     assert data["threat_intelligence_analysis"]["rate_limited_incomplete"] is True
 
+@live_db
 def test_weighted_fusion_with_real_threat_intel(monkeypatch):
     """Verify weighted fusion scales base weights by 0.85 and gives 15% to threat intel."""
     monkeypatch.setattr("routers.scan.check_threat_intel", lambda url: {
