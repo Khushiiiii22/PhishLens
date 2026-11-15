@@ -53,6 +53,10 @@ if os.path.exists(static_dir) and os.path.exists(os.path.join(static_dir, "index
     async def serve_favicon():
         return FileResponse(os.path.join(static_dir, "favicon.svg"))
 
+    @app.get("/favicon.ico")
+    async def serve_favicon_ico():
+        return FileResponse(os.path.join(static_dir, "favicon.svg"))
+
     @app.get("/icons.svg")
     async def serve_icons():
         return FileResponse(os.path.join(static_dir, "icons.svg"))
